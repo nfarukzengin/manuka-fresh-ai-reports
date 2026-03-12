@@ -200,7 +200,8 @@ else:
                     try:
                         # Streamlit Cloud'daki secrets bölümüne GEMINI_API_KEY eklemeyi unutma!
                         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                        model = genai.GenerativeModel("gemini-1.5-pro")
+                        uygun_modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+model = genai.GenerativeModel(uygun_modeller[0])
                         
                         # Uzman Promptu
                         prompt = f"""Sen çok tecrübeli bir E-ticaret ve Dijital Pazarlama uzmanısın. 
