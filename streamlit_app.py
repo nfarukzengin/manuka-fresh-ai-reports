@@ -1,8 +1,23 @@
 import streamlit as st
 import pandas as pd
 import google.generativeai as genai
+import json
+import os
 
 st.set_page_config(page_title="Yönetim Paneli", layout="wide")
+
+# --- VERİ TABANI (JSON DOSYASI) İŞLEMLERİ ---
+DATA_FILE = "rapor_veritabanı.json"
+
+def verileri_yukle():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"MANUKA": {}, "FRESH SCARFS": {}}
+
+def verileri_kaydet(veriler):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(veriler, f, ensure_ascii=False, indent=4)
 
 # --- VERİ ÇEKME FONKSİYONLARI ---
 @st.cache_data(show_spinner=False)
@@ -20,8 +35,11 @@ def veri_cek(sheet_id, sayfa_adi):
 # --- HAFIZA (SESSION STATE) ---
 if 'giris_yapti_mi' not in st.session_state: st.session_state.giris_yapti_mi = False
 if 'marka' not in st.session_state: st.session_state.marka = None
-if 'sheets_verileri' not in st.session_state: st.session_state.sheets_verileri = {"MANUKA": {}, "FRESH SCARFS": {}}
 if 'aktif_veri' not in st.session_state: st.session_state.aktif_veri = None
+
+# Raporları JSON'dan çek, session_state'e yükle
+if 'sheets_verileri' not in st.session_state:
+    st.session_state.sheets_verileri = verileri_yukle()
 
 # --- GİRİŞ SAYFASI ---
 if not st.session_state.giris_yapti_mi:
@@ -33,8 +51,7 @@ if not st.session_state.giris_yapti_mi:
             if sifre == "fresh123":
                 st.session_state.giris_yapti_mi = True
                 st.rerun()
-            elif sifre == "": st.warning("Boş geçemezsin kiral, parolayı yaz.")
-            else: st.error("Yanlış parola! Şansını zorlama :)")
+            else: st.error("Yanlış parola!")
 
 # --- ANA UYGULAMA ---
 else:
@@ -59,27 +76,40 @@ else:
         with col_buton:
             if st.button("⬅️ Tarafını Değiştir", use_container_width=True):
                 st.session_state.marka = None
-                st.session_state.aktif_veri = None # Marka değişince veriyi sıfırla
+                st.session_state.aktif_veri = None
                 st.rerun()
             
         st.divider()
         
-        # Üst Kısım: Yeni Sheets Ekleme
+        # Üst Kısım: Yeni Sheets Ekleme (SABİT KAYIT)
         with st.popover("➕ Yeni Rapor Bağla"):
             with st.form("yeni_sheets_formu", clear_on_submit=True):
-                yeni_ad = st.text_input("Raporun Adı Ne Olsun?")
-                yeni_id = st.text_input("Google Sheets ID'sini Yapıştır")
-                kaydet = st.form_submit_button("Sisteme Ekle")
+                yeni_ad = st.text_input("Raporun Adı (Örn: Facebook Ads)")
+                yeni_id = st.text_input("Google Sheets ID")
+                kaydet = st.form_submit_button("Sisteme ve Dosyaya Kaydet")
+                
                 if kaydet:
                     if yeni_ad and yeni_id:
+                        # Önce session'a sonra dosyaya yazıyoruz
                         st.session_state.sheets_verileri[aktif_marka][yeni_ad] = yeni_id
-                        st.success(f"Süper! {yeni_ad} eklendi.")
-                    else: st.error("İki alanı da doldurman lazım.")
+                        verileri_kaydet(st.session_state.sheets_verileri)
+                        st.success(f"Süper! {yeni_ad} artık kalıcı olarak kaydedildi.")
+                    else: st.error("Eksik bilgi girdin kiral.")
 
         st.write("---")
 
         mevcut_raporlar = st.session_state.sheets_verileri[aktif_marka]
         if mevcut_raporlar:
+            # SİLME SEÇENEĞİ (Opsiyonel ama lazım olur)
+            with st.expander("🗑️ Rapor Yönetimi / Sil"):
+                silinecek = st.selectbox("Silmek istediğin raporu seç:", ["Seçiniz..."] + list(mevcut_raporlar.keys()))
+                if st.button("Seçili Raporu Sistemden Sil"):
+                    if silinecek != "Seçiniz...":
+                        del st.session_state.sheets_verileri[aktif_marka][silinecek]
+                        verileri_kaydet(st.session_state.sheets_verileri)
+                        st.warning(f"{silinecek} silindi.")
+                        st.rerun()
+
             st.subheader("📁 Kayıtlı Raporların")
             secilen_rapor = st.selectbox("Hangi raporu inceleyeceğiz?", list(mevcut_raporlar.keys()))
             secilen_id = mevcut_raporlar[secilen_rapor]
@@ -94,12 +124,9 @@ else:
                     with col_d1: baslangic = st.date_input("Nereden Başlayalım?")
                     with col_d2: bitis = st.date_input("Nerede Bitirelim?")
                     
-                    st.write("##")
                     if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
-                        with st.spinner("Veriler toparlanıyor, biraz bekle..."):
+                        with st.spinner("Veriler toparlanıyor..."):
                             df = veri_cek(secilen_id, secilen_sayfa)
-                            
-                            # --- TARİH FİLTRESİ ---
                             if 'Tarih' in df.columns:
                                 df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
                                 df = df.dropna(subset=['Tarih'])
@@ -109,23 +136,18 @@ else:
                                 df['Tarih'] = pd.to_datetime(df['Tarih']).dt.strftime('%d.%m.%Y')
                             
                             if not df.empty:
-                                st.session_state.aktif_veri = df # Veriyi hafızaya alıyoruz ki grafik vs yenilenmesin
+                                st.session_state.aktif_veri = df
                             else:
-                                st.warning("Seçtiğin tarihler arasında hiç veri yok kiral, tarihleri biraz esnet.")
+                                st.warning("Veri yok!")
                                 st.session_state.aktif_veri = None
-                                
                 except Exception as e:
-                    st.error(f"Kiral, arka planda patlayan asıl hata şu: {e}")
-        else:
-            st.info("Burası bomboş. Yukarıdan bir rapor bağlayarak başlayabilirsin.")
+                    st.error(f"Hata: {e}")
 
         # ==========================================
-        # EĞER HAFIZADA VERİ VARSA EKRANA BAS (GRAFİK + AI)
+        # TABLO, GRAFİK VE AI BÖLÜMÜ (HAFIZADAN OKUR)
         # ==========================================
         if st.session_state.aktif_veri is not None:
             df = st.session_state.aktif_veri.copy()
-            
-            st.success("Veriler başarıyla yüklendi kiral!")
             
             # --- TABLO VE TOPLAM SATIRI ---
             sayisal_sutunlar = df.select_dtypes(include=['number']).columns
@@ -141,6 +163,7 @@ else:
             toplam_satiri['Tarih'] = 'TOPLAM'
             df_tablo = pd.concat([df, toplam_satiri], ignore_index=True)
             
+            # (Formatla fonksiyonu ve styling aynı kalacak...)
             def formatla(val, col_name):
                 if isinstance(val, (int, float)):
                     c_lower = col_name.lower()
@@ -158,65 +181,39 @@ else:
             for col in df_tablo.columns:
                 if col != 'Tarih': df_tablo[col] = df_tablo[col].apply(lambda x: formatla(x, col))
             
-            def satir_boya(row): return ['background-color: #004d40; color: white; font-weight: bold'] * len(row) if row['Tarih'] == 'TOPLAM' else [''] * len(row)
-            
-            st.dataframe(df_tablo.style.apply(satir_boya, axis=1), use_container_width=True)
+            st.dataframe(df_tablo.style.apply(lambda row: ['background-color: #004d40; color: white; font-weight: bold'] * len(row) if row['Tarih'] == 'TOPLAM' else [''] * len(row), axis=1), use_container_width=True)
             
             st.divider()
 
             # --- DİNAMİK GRAFİK ---
             st.subheader("📈 Veri Trendleri")
-            secilen_metrikler = st.multiselect("Grafikte Görmek İstediğin Metrikleri Seç:", sayisal_sutunlar.tolist(), default=sayisal_sutunlar.tolist()[:2] if len(sayisal_sutunlar) > 1 else None)
-            
+            secilen_metrikler = st.multiselect("Metrikler:", sayisal_sutunlar.tolist(), default=sayisal_sutunlar.tolist()[:1])
             if secilen_metrikler:
-                df_grafik = df.copy()
-                df_grafik = df_grafik.set_index('Tarih')
+                df_grafik = df.set_index('Tarih')
                 st.line_chart(df_grafik[secilen_metrikler])
                 
             st.divider()
 
-            # --- YAPAY ZEKA (GEMINI) BAĞLANTISI ---
+            # --- YAPAY ZEKA (GEMINI) ---
             st.subheader("🤖 AI'dan Al Haberi")
-            st.info("Ben Dijital Pazarlama Uzmanı manukAI. Bu verilere dair ne öğrenmek istersin?")
-            
             soru_onerileri = [
                 "✏️ Kendi sorumu yazacağım",
                 "📊 CPA ve COS oranlarına göre reklam verimliliğini değerlendir.",
                 "📉 En yüksek ve en düşük ciro yapılan günleri kıyasla, sence neden?",
-                "💰 Bu verilere göre yarınki reklam bütçesini artırmalı mıyım, kısmalı mıyım?",
                 "🎯 Sadık müşteri kazanımı (CRM) ve ciro artışı için bana 3 stratejik aksiyon öner."
             ]
-            secilen_soru = st.selectbox("Bir soru seç veya kendin yaz:", soru_onerileri)
-            
-            if secilen_soru == "✏️ Kendi sorumu yazacağım":
-                kullanici_sorusu = st.text_area("Ne sormak istersin?")
-            else:
-                kullanici_sorusu = secilen_soru
+            secilen_soru = st.selectbox("Soru seç:", soru_onerileri)
+            kullanici_sorusu = st.text_area("Sorun:") if secilen_soru == "✏️ Kendi sorumu yazacağım" else secilen_soru
                 
-            if st.button("🧠 AI'dan Al Haberi", use_container_width=True):
-                if not kullanici_sorusu or kullanici_sorusu == "✏️ Kendi sorumu yazacağım":
-                    st.warning("Kiral, soruyu boş bıraktın!")
-                else:
-                    try:
-                        # Streamlit Cloud'daki secrets bölümüne GEMINI_API_KEY eklemeyi unutma!
-                        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                        uygun_modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                        model = genai.GenerativeModel(uygun_modeller[0])
-                        
-                        
-                        # Uzman Promptu
-                        prompt = f"""Sen çok tecrübeli bir E-ticaret ve Dijital Pazarlama uzmanısın. 
-                        Aşağıdaki güncel rapor verilerini analiz et ve sorulan soruya net, gereksiz uzatmadan, stratejik ve profesyonel bir cevap ver.
-                        
-                        Kullanıcının Sorusu: {kullanici_sorusu}
-                        
-                        Veriler:
-                        {df.to_string()}
-                        """
-                        
-                        with st.spinner("Uzman analiz ediyor, az bekle..."):
-                            cevap = model.generate_content(prompt)
-                            st.success("İşte Analiz Sonucu:")
-                            st.write(cevap.text)
-                    except Exception as e:
-                        st.error("AI ile bağlantı kuramadım kiral. Streamlit Secrets ayarlarında GEMINI_API_KEY tanımlı olduğundan emin ol! Hata detayı: " + str(e))
+            if st.button("🧠 AI Analizini Başlat", use_container_width=True):
+                try:
+                    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+                    # Uygun model seçimi (Hata vermemesi için dinamik liste)
+                    modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    model = genai.GenerativeModel(modeller[0])
+                    
+                    prompt = f"Sen bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
+                    cevap = model.generate_content(prompt)
+                    st.info(cevap.text)
+                except Exception as e:
+                    st.error(f"AI Hatası: {e}")
