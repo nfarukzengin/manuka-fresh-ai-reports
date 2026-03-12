@@ -125,17 +125,20 @@ else:
                         with st.spinner("Veriler toparlanıyor, biraz bekle..."):
                             df = veri_cek(secilen_id, secilen_sayfa)
                             
-                            # --- TARİH FİLTRESİ VE SAAT TEMİZLİĞİ ---
+                           # --- TARİH FİLTRESİ VE SAAT TEMİZLİĞİ ---
                             if 'Tarih' in df.columns:
-                                # 1. Saat bilgisini sil ve saf tarih formatına çevir
-                                df['Tarih'] = pd.to_datetime(df['Tarih']).dt.date
+                                # 1. "Toplam" gibi metinleri hata vermeden pas geçmek için coerce kullan
+                                df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
                                 
-                                # 2. Başlangıç ve bitiş aralığına göre filtrele
+                                # 2. Tarih formatına uymayan (Toplam yazan) satırları listeden at
+                                df = df.dropna(subset=['Tarih'])
+                                
+                                # 3. Saatleri sil, saf tarihe çevir
+                                df['Tarih'] = df['Tarih'].dt.date
+                                
+                                # 4. Senin seçtiğin tarihlere göre filtrele
                                 maske = (df['Tarih'] >= baslangic) & (df['Tarih'] <= bitis)
-                                df = df.loc[maske].copy() # Filtrelenmiş veriyi al
-                                
-                                # Görünümü daha şık yapmak için tarihi tekrar gün.ay.yıl yapabiliriz (opsiyonel)
-                                # df['Tarih'] = pd.to_datetime(df['Tarih']).dt.strftime('%d.%m.%Y')
+                                df = df.loc[maske].copy()
                                 
                             else:
                                 st.warning("Tabloda tam olarak 'Tarih' adında bir sütun bulamadığım için filtreleme yapamadım.")
