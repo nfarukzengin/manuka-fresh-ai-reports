@@ -177,7 +177,7 @@ else:
 
             # --- YAPAY ZEKA (GEMINI) BAĞLANTISI ---
             st.subheader("🤖 AI'dan Al Haberi")
-            st.info("Ben Dijital Pazarlama Uzmanı Gemini. Bu verilere dair ne öğrenmek istersin kiral?")
+            st.info("Ben Dijital Pazarlama Uzmanı manukAI. Bu verilere dair ne öğrenmek istersin?")
             
             soru_onerileri = [
                 "✏️ Kendi sorumu yazacağım",
