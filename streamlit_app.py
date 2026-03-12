@@ -144,7 +144,36 @@ else:
                                 st.warning("Tabloda tam olarak 'Tarih' adında bir sütun bulamadığım için filtreleme yapamadım.")
                             
                             st.success(f"Geldi! {secilen_rapor} raporunun {secilen_sayfa} sekmesine bakıyorsun.")
-                            st.dataframe(df, use_container_width=True)
+                            # --- DİNAMİK TOPLAM SATIRI (ORANLAR DAHİL) ---
+                            if not df.empty:
+                                sayisal_sutunlar = df.select_dtypes(include=['number']).columns
+                                toplam_degerler = {}
+                                
+                                for col in sayisal_sutunlar:
+                                    c_lower = col.lower()
+                                    # COS, ROAS, CR gibi oransal sütunların ortalamasını al
+                                    if any(x in c_lower for x in ['cos', 'roas', 'cr', 'oran', 'katkı']):
+                                        toplam_degerler[col] = df[col].mean()
+                                    else:
+                                        # Geri kalanları (Ciro, Harcama vb.) topla
+                                        toplam_degerler[col] = df[col].sum()
+                                
+                                # Toplam satırını tablo formatına getir
+                                toplam_satiri = pd.DataFrame([toplam_degerler])
+                                toplam_satiri['Tarih'] = 'TOPLAM'
+                                
+                                # Ana tablo ile birleştir
+                                df = pd.concat([df, toplam_satiri], ignore_index=True)
+                                
+                                # Toplam satırını belirginleştirmek için renklendir
+                                def satir_boya(row):
+                                    if row['Tarih'] == 'TOPLAM':
+                                        return ['background-color: #004d40; color: white; font-weight: bold'] * len(row)
+                                    return [''] * len(row)
+                                
+                                st.dataframe(df.style.apply(satir_boya, axis=1), use_container_width=True)
+                            else:
+                                st.warning("Seçtiğin tarihler arasında hiç veri yok kiral, tarihleri biraz esnet.")
                             
                 except Exception as e:
                     st.error(f"Bi' sorun var, arka planda patlayan asıl hata şu: {e}")
