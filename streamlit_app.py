@@ -124,8 +124,23 @@ else:
                     if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
                         with st.spinner("Veriler toparlanıyor, biraz bekle..."):
                             df = veri_cek(secilen_id, secilen_sayfa)
-                            st.success(f"Geldi! {secilen_rapor} raporunun {secilen_sayfa} sekmesine bakıyorsun.")
                             
+                            # --- TARİH FİLTRESİ VE SAAT TEMİZLİĞİ ---
+                            if 'Tarih' in df.columns:
+                                # 1. Saat bilgisini sil ve saf tarih formatına çevir
+                                df['Tarih'] = pd.to_datetime(df['Tarih']).dt.date
+                                
+                                # 2. Başlangıç ve bitiş aralığına göre filtrele
+                                maske = (df['Tarih'] >= baslangic) & (df['Tarih'] <= bitis)
+                                df = df.loc[maske].copy() # Filtrelenmiş veriyi al
+                                
+                                # Görünümü daha şık yapmak için tarihi tekrar gün.ay.yıl yapabiliriz (opsiyonel)
+                                # df['Tarih'] = pd.to_datetime(df['Tarih']).dt.strftime('%d.%m.%Y')
+                                
+                            else:
+                                st.warning("Tabloda tam olarak 'Tarih' adında bir sütun bulamadığım için filtreleme yapamadım.")
+                            
+                            st.success(f"Geldi! {secilen_rapor} raporunun {secilen_sayfa} sekmesine bakıyorsun.")
                             st.dataframe(df, use_container_width=True)
                             
                 except Exception as e:
