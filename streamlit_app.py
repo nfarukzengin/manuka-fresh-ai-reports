@@ -122,60 +122,72 @@ else:
                     
                     st.write("##")
                     if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
+                        if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
                         with st.spinner("Veriler toparlanıyor, biraz bekle..."):
                             df = veri_cek(secilen_id, secilen_sayfa)
                             
-                           # --- TARİH FİLTRESİ VE SAAT TEMİZLİĞİ ---
+                            # --- 1. TARİH FİLTRESİ VE TEMİZLİĞİ ---
                             if 'Tarih' in df.columns:
-                                # 1. "Toplam" gibi metinleri hata vermeden pas geçmek için coerce kullan
                                 df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
-                                
-                                # 2. Tarih formatına uymayan (Toplam yazan) satırları listeden at
                                 df = df.dropna(subset=['Tarih'])
-                                
-                                # 3. Saatleri sil, saf tarihe çevir
                                 df['Tarih'] = df['Tarih'].dt.date
                                 
-                                # 4. Senin seçtiğin tarihlere göre filtrele
                                 maske = (df['Tarih'] >= baslangic) & (df['Tarih'] <= bitis)
                                 df = df.loc[maske].copy()
                                 
-                            else:
-                                st.warning("Tabloda tam olarak 'Tarih' adında bir sütun bulamadığım için filtreleme yapamadım.")
+                                # Tarihi GÜN.AY.YIL formatına çevir
+                                df['Tarih'] = pd.to_datetime(df['Tarih']).dt.strftime('%d.%m.%Y')
                             
-                            st.success(f"Geldi! {secilen_rapor} raporunun {secilen_sayfa} sekmesine bakıyorsun.")
-                            # --- DİNAMİK TOPLAM SATIRI (ORANLAR DAHİL) ---
+                            # --- 2. DİNAMİK TOPLAM SATIRI ---
                             if not df.empty:
                                 sayisal_sutunlar = df.select_dtypes(include=['number']).columns
                                 toplam_degerler = {}
                                 
                                 for col in sayisal_sutunlar:
                                     c_lower = col.lower()
-                                    # COS, ROAS, CR gibi oransal sütunların ortalamasını al
-                                    if any(x in c_lower for x in ['cos', 'roas', 'cr', 'oran', 'katkı']):
+                                    # İçinde 'cos' geçenleri ortalama al ama 'cost' ise alma (TOPLA)!
+                                    if any(x in c_lower for x in ['cos', 'roas', 'cr', 'oran', 'katkı', 'gelir']) and 'cost' not in c_lower:
                                         toplam_degerler[col] = df[col].mean()
                                     else:
-                                        # Geri kalanları (Ciro, Harcama vb.) topla
                                         toplam_degerler[col] = df[col].sum()
                                 
-                                # Toplam satırını tablo formatına getir
                                 toplam_satiri = pd.DataFrame([toplam_degerler])
                                 toplam_satiri['Tarih'] = 'TOPLAM'
-                                
-                                # Ana tablo ile birleştir
                                 df = pd.concat([df, toplam_satiri], ignore_index=True)
                                 
-                                # Toplam satırını belirginleştirmek için renklendir
+                                # --- 3. MAKYAJ: SAYILARI FORMATLAMA ---
+                                def formatla(val, col_name):
+                                    if isinstance(val, (int, float)):
+                                        c_lower = col_name.lower()
+                                        
+                                        # Oransal değerler (Örn: %7.20)
+                                        if any(x in c_lower for x in ['cos', 'roas', 'cr', 'oran', 'katkı', 'gelir']) and 'cost' not in c_lower:
+                                            if val < 10 and val > -10: val = val * 100 
+                                            return f"% {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                                            
+                                        # Parasal değerler (Örn: ₺12.500,50)
+                                        elif any(x in c_lower for x in ['revenue', 'cost', 'cpc', 'cpa', 'harcama', 'reklam']):
+                                            return f"₺ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                                            
+                                        # Normal sayılar (Küsüratsızsa ,00 kısmını atar)
+                                        else:
+                                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                                            if fmt_val.endswith(",00"): fmt_val = fmt_val[:-3]
+                                            return fmt_val
+                                    return val
+
+                                # Bütün sütunları format fonksiyonundan geçir
+                                for col in df.columns:
+                                    if col != 'Tarih': 
+                                        df[col] = df[col].apply(lambda x: formatla(x, col))
+                                
+                                # Toplam satırını boya
                                 def satir_boya(row):
                                     if row['Tarih'] == 'TOPLAM':
                                         return ['background-color: #004d40; color: white; font-weight: bold'] * len(row)
                                     return [''] * len(row)
                                 
+                                st.success(f"Geldi! {secilen_rapor} raporunun {secilen_sayfa} sekmesine bakıyorsun.")
                                 st.dataframe(df.style.apply(satir_boya, axis=1), use_container_width=True)
                             else:
                                 st.warning("Seçtiğin tarihler arasında hiç veri yok kiral, tarihleri biraz esnet.")
-                            
-                except Exception as e:
-                    st.error(f"Bi' sorun var, arka planda patlayan asıl hata şu: {e}")
-        else:
-            st.info("Burası bomboş. Yukarıdan bir rapor bağlayarak başlayabilirsin.")
