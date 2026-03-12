@@ -144,6 +144,6 @@ else:
                             st.dataframe(df, use_container_width=True)
                             
                 except Exception as e:
-                    st.error("Ufak bir sorun çıktı! ID hatalı olabilir veya dosya paylaşıma açık değil.")
+                    st.error(f"Bi' sorun var, arka planda patlayan asıl hata şu: {e}")
         else:
             st.info("Burası bomboş. Yukarıdan bir rapor bağlayarak başlayabilirsin.")
