@@ -9,7 +9,7 @@ if 'marka' not in st.session_state:
 
 # --- 1. EKRAN: MARKA SEÇİMİ ---
 if st.session_state.marka is None:
-    st.title("🏢 Lütfen Bir Marka Seç kiral")
+    st.title("🏢 Tarafını Seç :) 🏢")
     st.write("---")
     
     # İki dev buton için yan yana kolonlar
