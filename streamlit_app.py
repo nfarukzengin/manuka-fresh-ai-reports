@@ -33,24 +33,22 @@ if 'sheets_verileri' not in st.session_state:
 if not st.session_state.giris_yapti_mi:
     st.title("✋ Hop Hemşerim Nereye? Parolayı Söyle!")
     
-    # Şifre kutusu ve butonu ortalamak için kolon kullanıyoruz
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         sifre = st.text_input("Parola", type="password", label_visibility="collapsed", placeholder="Parolayı gir...")
         if st.button("İçeri Gir", use_container_width=True):
             if sifre == "fresh123":
                 st.session_state.giris_yapti_mi = True
-                st.rerun() # Sayfayı yenile ve içeri al
+                st.rerun()
             elif sifre == "":
-                st.warning("Boş geçemezsin, parolayı yaz.")
+                st.warning("Boş geçemezsin kiral, parolayı yaz.")
             else:
-                st.error("Yanlışlıkla mı yanlış yazdın? Yoksa kaçak girmeye çalışan hain misin?")
+                st.error("Yanlış parola! Şansını zorlama :)")
 
 # --- ANA UYGULAMA (İÇERİSİ) ---
 else:
     # 1. EKRAN: MARKA SEÇİMİ
     if st.session_state.marka is None:
-        # Çıkış Yap Butonu
         if st.button("🚪 Çıkış Yap"):
             st.session_state.giris_yapti_mi = False
             st.rerun()
@@ -122,7 +120,6 @@ else:
                     
                     st.write("##")
                     if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
-                        if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
                         with st.spinner("Veriler toparlanıyor, biraz bekle..."):
                             df = veri_cek(secilen_id, secilen_sayfa)
                             
@@ -145,7 +142,6 @@ else:
                                 
                                 for col in sayisal_sutunlar:
                                     c_lower = col.lower()
-                                    # İçinde 'cos' geçenleri ortalama al ama 'cost' ise alma (TOPLA)!
                                     if any(x in c_lower for x in ['cos', 'roas', 'cr', 'oran', 'katkı', 'gelir']) and 'cost' not in c_lower:
                                         toplam_degerler[col] = df[col].mean()
                                     else:
@@ -159,29 +155,21 @@ else:
                                 def formatla(val, col_name):
                                     if isinstance(val, (int, float)):
                                         c_lower = col_name.lower()
-                                        
-                                        # Oransal değerler (Örn: %7.20)
                                         if any(x in c_lower for x in ['cos', 'roas', 'cr', 'oran', 'katkı', 'gelir']) and 'cost' not in c_lower:
                                             if val < 10 and val > -10: val = val * 100 
                                             return f"% {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                                            
-                                        # Parasal değerler (Örn: ₺12.500,50)
                                         elif any(x in c_lower for x in ['revenue', 'cost', 'cpc', 'cpa', 'harcama', 'reklam']):
                                             return f"₺ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                                            
-                                        # Normal sayılar (Küsüratsızsa ,00 kısmını atar)
                                         else:
                                             fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                                             if fmt_val.endswith(",00"): fmt_val = fmt_val[:-3]
                                             return fmt_val
                                     return val
 
-                                # Bütün sütunları format fonksiyonundan geçir
                                 for col in df.columns:
                                     if col != 'Tarih': 
                                         df[col] = df[col].apply(lambda x: formatla(x, col))
                                 
-                                # Toplam satırını boya
                                 def satir_boya(row):
                                     if row['Tarih'] == 'TOPLAM':
                                         return ['background-color: #004d40; color: white; font-weight: bold'] * len(row)
@@ -191,3 +179,8 @@ else:
                                 st.dataframe(df.style.apply(satir_boya, axis=1), use_container_width=True)
                             else:
                                 st.warning("Seçtiğin tarihler arasında hiç veri yok kiral, tarihleri biraz esnet.")
+                            
+                except Exception as e:
+                    st.error(f"Kiral, arka planda patlayan asıl hata şu: {e}")
+        else:
+            st.info("Burası bomboş. Yukarıdan bir rapor bağlayarak başlayabilirsin.")
