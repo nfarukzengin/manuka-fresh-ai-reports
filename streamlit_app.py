@@ -197,6 +197,11 @@ else:
         # ==========================================
         if st.session_state.aktif_veri is not None:
             df = st.session_state.aktif_veri.copy()
+            # Kampanya Filtresi
+            if 'CampaignName' in df.columns:
+                secilen_kampanyalar = st.multiselect("🎯 Kampanya Seç:", df['CampaignName'].unique())
+                if secilen_kampanyalar:
+                    df = df[df['CampaignName'].isin(secilen_kampanyalar)]
             
             tarih_kolonu = None
             for col in df.columns:
