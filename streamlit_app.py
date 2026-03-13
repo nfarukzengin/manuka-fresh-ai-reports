@@ -176,6 +176,11 @@ else:
                                     
                                     maske = (df[tarih_kolonu] >= baslangic) & (df[tarih_kolonu] <= bitis)
                                     df = df.loc[maske].copy()
+                                    # Kampanya Filtresi
+                                    if 'CampaignName' in df.columns:
+                                        secilen_kampanyalar = st.multiselect("🎯 Kampanya Seç:", df['CampaignName'].unique())
+                                        if secilen_kampanyalar:
+                                            df = df[df['CampaignName'].isin(secilen_kampanyalar)]
                                     
                                     df[tarih_kolonu] = pd.to_datetime(df[tarih_kolonu]).dt.strftime('%d.%m.%Y')
                                 
