@@ -17,11 +17,18 @@ def verileri_yukle():
             return json.load(f)
     return {"MANUKA": {}, "FRESH SCARFS": {}}
 
+def id_temizle(gelen_id):
+    gelen_id = str(gelen_id).strip() # Boşlukları siler
+    if "spreadsheets/d/" in gelen_id:
+        return gelen_id.split("spreadsheets/d/")[1].split("/")[0]
+    return gelen_id
+
 def verileri_kaydet(veriler):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(veriler, f, ensure_ascii=False, indent=4)
 
 @st.cache_data(show_spinner=False)
+sheet_id = id_temizle(sheet_id)
 def sekmeleri_getir(sheet_id):
     params = {"islem": "sekmeler", "id": sheet_id, "token": API_TOKEN}
     cevap = requests.get(API_URL, params=params)
@@ -29,6 +36,7 @@ def sekmeleri_getir(sheet_id):
     except Exception: return f"Hata: {cevap.text[:200]}"
 
 @st.cache_data(show_spinner=False)
+sheet_id = id_temizle(sheet_id)
 def veri_cek(sheet_id, sayfa_adi):
     params = {"islem": "veri", "id": sheet_id, "sayfa": sayfa_adi, "token": API_TOKEN}
     cevap = requests.get(API_URL, params=params)
