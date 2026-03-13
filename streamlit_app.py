@@ -197,7 +197,8 @@ else:
                 secilen_kampanyalar = st.multiselect("🎯 Kampanya Seç:", df['CampaignName'].unique())
                 if secilen_kampanyalar:
                     df = df[df['CampaignName'].isin(secilen_kampanyalar)]
-                    # --- ALERT SİSTEMİ (Kampanya filtresinin hemen altına yapıştır) ---
+                    
+            # --- ALERT SİSTEMİ (Kampanya filtresinin hemen altına yapıştır) ---
             if 'CampaignName' in df.columns and tarih_kolonu:
                 st.subheader("🚨 Performans Uyarıları")
                 uyarilar = []
