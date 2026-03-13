@@ -157,6 +157,7 @@ else:
                         if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
                             with st.spinner("Arka plandan veriler sökülüp getiriliyor..."):
                                 df = veri_cek(secilen_id, secilen_sayfa)
+                                st.session_state.ham_veri = df.copy()
                                 
                                 tarih_kolonu = None
                                 for col in df.columns:
@@ -190,7 +191,73 @@ else:
         # ==========================================
         # TABLO, GRAFİK VE AI BÖLÜMÜ
         # ==========================================
-        if st.session_state.aktif_veri is not None:
+       if st.session_state.aktif_veri is not None and 'ham_veri' in st.session_state:
+            tab1, tab2 = st.tabs(["📊 Rapor Analizi", "🚨 Alarm Merkezi (Slack Hazırlığı)"])
+            
+            with tab1:
+                df = st.session_state.aktif_veri.copy()
+                # MEVCUT TABLO, GRAFİK VE AI KODLARIN BURADA KALMAYA DEVAM EDECEK
+                # (df_tablo oluşturma, st.dataframe, AI formu vs. hepsini bir 'Tab' (boşluk) içeri al)
+
+            with tab2:
+                # --- BURASI TAMAMEN BAĞIMSIZ HAM VERİDEN BESLENİR ---
+                df_alert = st.session_state.ham_veri.copy()
+                aktif_tarih = next((col for col in df_alert.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
+                
+                if 'CampaignName' in df_alert.columns and aktif_tarih:
+                    st.subheader("📊 Filtresiz Gerçek Zamanlı Alarm Merkezi")
+                    
+                    alarm_verenler = {}
+                    isler_yolunda = []
+                    
+                    df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], errors='coerce', dayfirst=True)
+                    
+                    for metrik in ['Impressions', 'Clicks', 'Conversions']:
+                        if metrik in df_alert.columns:
+                            df_alert[metrik] = pd.to_numeric(df_alert[metrik], errors='coerce').fillna(0)
+                    
+                    agg_kurallari = {m: 'sum' for m in ['Impressions', 'Clicks', 'Conversions'] if m in df_alert.columns}
+                    if 'CampaignStatus' in df_alert.columns: agg_kurallari['CampaignStatus'] = 'last'
+                        
+                    df_gruplu = df_alert.groupby(['CampaignName', 'gecici_tarih']).agg(agg_kurallari).reset_index()
+                    
+                    for kampanya in df_gruplu['CampaignName'].unique():
+                        k_df = df_gruplu[df_gruplu['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
+                        if not k_df.empty:
+                            if 'CampaignStatus' in k_df.columns:
+                                if str(k_df.iloc[-1]['CampaignStatus']).strip().upper() != 'ENABLED': continue
+                                
+                            if len(k_df) >= 8:
+                                son_veri = k_df.iloc[-1]
+                                gecmis_7 = k_df.iloc[-8:-1]
+                                kampanya_uyarilari = []
+                                guncel_tarih_str = son_veri['gecici_tarih'].strftime('%d.%m.%Y')
+                                
+                                for metrik in ['Impressions', 'Clicks', 'Conversions']:
+                                    if metrik in k_df.columns:
+                                        gecmis_ort = gecmis_7[metrik].mean()
+                                        guncel = son_veri[metrik]
+                                        if gecmis_ort > 0:
+                                            degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
+                                            if degisim <= -20:
+                                                kampanya_uyarilari.append(f"{metrik}: %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.1f} ➡️ Güncel [{guncel_tarih_str}]: {guncel:.1f})")
+                                
+                                if kampanya_uyarilari: alarm_verenler[kampanya] = kampanya_uyarilari
+                                else: isler_yolunda.append(kampanya)
+                    
+                    durum_secimi = st.radio("Kampanyaları Filtrele:", ["🔴 Alarm Verenler", "🟢 İşler Yolunda"], horizontal=True, key="alert_radio")
+                    st.write("---")
+                    
+                    if durum_secimi == "🔴 Alarm Verenler":
+                        if alarm_verenler:
+                            for kampanya, hatalar in alarm_verenler.items():
+                                with st.expander(f"📉 {kampanya}", expanded=True):
+                                    for hata in hatalar: st.error(hata)
+                        else: st.success("Harika! %20'den fazla düşüş yaşayan aktif kampanya yok.")
+                    elif durum_secimi == "🟢 İşler Yolunda":
+                        if isler_yolunda:
+                            for kampanya in isler_yolunda: st.success(f"✅ **{kampanya}**")
+                        else: st.warning("Şu an için sorunsuz ilerleyen aktif kampanya bulunmuyor.")
             df = st.session_state.aktif_veri.copy()
             # Kampanya Filtresi
             if 'CampaignName' in df.columns:
