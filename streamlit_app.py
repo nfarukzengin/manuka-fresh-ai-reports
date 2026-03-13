@@ -198,8 +198,7 @@ else:
                 if secilen_kampanyalar:
                     df = df[df['CampaignName'].isin(secilen_kampanyalar)]
                     
-           # --- ALERT SİSTEMİ ---
-            # Hata vermemesi için tarih sütununu tam burada tespit ediyoruz:
+          # --- ALERT SİSTEMİ ---
             aktif_tarih = next((col for col in df.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
             
             if 'CampaignName' in df.columns and aktif_tarih:
@@ -208,6 +207,11 @@ else:
                 df_alert = df.copy()
                 
                 df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], format='%d.%m.%Y', errors='coerce')
+                
+                # ÇÖZÜM BURADA: Metrikleri zorla saf sayıya çeviriyoruz ki hesaplama patlamasın
+                for metrik in ['Impressions', 'Clicks', 'Conversions']:
+                    if metrik in df_alert.columns:
+                        df_alert[metrik] = pd.to_numeric(df_alert[metrik].astype(str).str.replace(',', '').str.replace('.', ''), errors='coerce').fillna(0)
                 
                 for kampanya in df_alert['CampaignName'].unique():
                     k_df = df_alert[df_alert['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
