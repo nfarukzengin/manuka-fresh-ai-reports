@@ -3,8 +3,13 @@ import pandas as pd
 import google.generativeai as genai
 import json
 import os
+import requests
 
 st.set_page_config(page_title="Yönetim Paneli", layout="wide")
+
+# --- GİZLİ API KÖPRÜSÜ AYARLARI ---
+API_URL = "https://script.google.com/macros/s/AKfycbxHd6N9TF2uzqJr-EhEfGyGH3j2oGTEiTRpKShSwwoWpJuVocyXVGHbWHyYNDL9uSQ/exec"
+API_TOKEN = "neco_baba_123"
 
 # --- VERİ TABANI (JSON DOSYASI) İŞLEMLERİ ---
 DATA_FILE = "rapor_veritabanı.json"
@@ -19,17 +24,37 @@ def verileri_kaydet(veriler):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(veriler, f, ensure_ascii=False, indent=4)
 
-# --- VERİ ÇEKME FONKSİYONLARI ---
+# --- VERİ ÇEKME FONKSİYONLARI (GİZLİ API ÜZERİNDEN) ---
 @st.cache_data(show_spinner=False)
 def sekmeleri_getir(sheet_id):
-    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
-    xls = pd.ExcelFile(url)
-    return xls.sheet_names
+    params = {"islem": "sekmeler", "id": sheet_id, "token": API_TOKEN}
+    cevap = requests.get(API_URL, params=params)
+    return cevap.json()
 
 @st.cache_data(show_spinner=False)
 def veri_cek(sheet_id, sayfa_adi):
-    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
-    df = pd.read_excel(url, sheet_name=sayfa_adi)
+    params = {"islem": "veri", "id": sheet_id, "sayfa": sayfa_adi, "token": API_TOKEN}
+    cevap = requests.get(API_URL, params=params)
+    veri = cevap.json()
+    
+    if len(veri) > 1:
+        df = pd.DataFrame(veri[1:], columns=veri[0])
+    else:
+        df = pd.DataFrame(veri)
+        
+    # App Script'ten gelen string (metin) verileri sayısala çevirme
+    for col in df.columns:
+        if col not in ['Tarih', 'Ürün Adı', 'Kampanya']:
+            def temizle(x):
+                if isinstance(x, str):
+                    x = x.replace('₺', '').replace('%', '').replace('None', '0').strip()
+                    if '.' in x and ',' in x: x = x.replace('.', '').replace(',', '.')
+                    elif ',' in x: x = x.replace(',', '.')
+                return x 
+            df[col] = df[col].apply(temizle)
+            # Eğer sütun sayısal ağırlıklıysa sayıya çevir, patlarsa metin bırak
+            df[col] = pd.to_numeric(df[col], errors='ignore')
+            
     return df
 
 # --- HAFIZA (SESSION STATE) ---
@@ -37,7 +62,6 @@ if 'giris_yapti_mi' not in st.session_state: st.session_state.giris_yapti_mi = F
 if 'marka' not in st.session_state: st.session_state.marka = None
 if 'aktif_veri' not in st.session_state: st.session_state.aktif_veri = None
 
-# Raporları JSON'dan çek, session_state'e yükle
 if 'sheets_verileri' not in st.session_state:
     st.session_state.sheets_verileri = verileri_yukle()
 
@@ -55,7 +79,6 @@ if not st.session_state.giris_yapti_mi:
 
 # --- ANA UYGULAMA ---
 else:
-    # 1. EKRAN: MARKA SEÇİMİ
     if st.session_state.marka is None:
         if st.button("🚪 Çıkış Yap"):
             st.session_state.giris_yapti_mi = False
@@ -68,7 +91,6 @@ else:
         with col2:
             if st.button("🧣 FRESH SCARFS", use_container_width=True): st.session_state.marka = "FRESH SCARFS"; st.rerun()
 
-    # 2. EKRAN: MARKA İÇERİĞİ
     else:
         aktif_marka = st.session_state.marka
         col_baslik, col_buton = st.columns([4, 1])
@@ -81,7 +103,6 @@ else:
             
         st.divider()
         
-        # Üst Kısım: Yeni Sheets Ekleme (SABİT KAYIT)
         with st.popover("➕ Yeni Rapor Bağla"):
             with st.form("yeni_sheets_formu", clear_on_submit=True):
                 yeni_ad = st.text_input("Raporun Adı (Örn: Facebook Ads)")
@@ -90,17 +111,15 @@ else:
                 
                 if kaydet:
                     if yeni_ad and yeni_id:
-                        # Önce session'a sonra dosyaya yazıyoruz
                         st.session_state.sheets_verileri[aktif_marka][yeni_ad] = yeni_id
                         verileri_kaydet(st.session_state.sheets_verileri)
-                        st.success(f"Süper! {yeni_ad} artık kalıcı olarak kaydedildi.")
+                        st.success(f"Süper! {yeni_ad} eklendi.")
                     else: st.error("Eksik bilgi girdin kiral.")
 
         st.write("---")
 
         mevcut_raporlar = st.session_state.sheets_verileri[aktif_marka]
         if mevcut_raporlar:
-            # SİLME SEÇENEĞİ (Opsiyonel ama lazım olur)
             with st.expander("🗑️ Rapor Yönetimi / Sil"):
                 silinecek = st.selectbox("Silmek istediğin raporu seç:", ["Seçiniz..."] + list(mevcut_raporlar.keys()))
                 if st.button("Seçili Raporu Sistemden Sil"):
@@ -118,38 +137,41 @@ else:
                 try:
                     with st.spinner("Sekmeler aranıyor..."):
                         sayfalar = sekmeleri_getir(secilen_id)
-                    secilen_sayfa = st.selectbox("Hangi sekmeye bakıyoruz?", sayfalar)
-                    
-                    col_d1, col_d2 = st.columns(2)
-                    with col_d1: baslangic = st.date_input("Nereden Başlayalım?")
-                    with col_d2: bitis = st.date_input("Nerede Bitirelim?")
-                    
-                    if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
-                        with st.spinner("Veriler toparlanıyor..."):
-                            df = veri_cek(secilen_id, secilen_sayfa)
-                            if 'Tarih' in df.columns:
-                                df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
-                                df = df.dropna(subset=['Tarih'])
-                                df['Tarih'] = df['Tarih'].dt.date
-                                maske = (df['Tarih'] >= baslangic) & (df['Tarih'] <= bitis)
-                                df = df.loc[maske].copy()
-                                df['Tarih'] = pd.to_datetime(df['Tarih']).dt.strftime('%d.%m.%Y')
-                            
-                            if not df.empty:
-                                st.session_state.aktif_veri = df
-                            else:
-                                st.warning("Veri yok!")
-                                st.session_state.aktif_veri = None
+                        
+                    if isinstance(sayfalar, list):
+                        secilen_sayfa = st.selectbox("Hangi sekmeye bakıyoruz?", sayfalar)
+                        
+                        col_d1, col_d2 = st.columns(2)
+                        with col_d1: baslangic = st.date_input("Nereden Başlayalım?")
+                        with col_d2: bitis = st.date_input("Nerede Bitirelim?")
+                        
+                        if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
+                            with st.spinner("Veriler toparlanıyor..."):
+                                df = veri_cek(secilen_id, secilen_sayfa)
+                                if 'Tarih' in df.columns:
+                                    df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
+                                    df = df.dropna(subset=['Tarih'])
+                                    df['Tarih'] = df['Tarih'].dt.date
+                                    maske = (df['Tarih'] >= baslangic) & (df['Tarih'] <= bitis)
+                                    df = df.loc[maske].copy()
+                                    df['Tarih'] = pd.to_datetime(df['Tarih']).dt.strftime('%d.%m.%Y')
+                                
+                                if not df.empty:
+                                    st.session_state.aktif_veri = df
+                                else:
+                                    st.warning("Veri yok!")
+                                    st.session_state.aktif_veri = None
+                    else:
+                        st.error("API sekme isimlerini alamadı. URL veya ID hatalı olabilir kiral.")
                 except Exception as e:
                     st.error(f"Hata: {e}")
 
         # ==========================================
-        # TABLO, GRAFİK VE AI BÖLÜMÜ (HAFIZADAN OKUR)
+        # TABLO, GRAFİK VE AI BÖLÜMÜ
         # ==========================================
         if st.session_state.aktif_veri is not None:
             df = st.session_state.aktif_veri.copy()
             
-            # --- TABLO VE TOPLAM SATIRI ---
             sayisal_sutunlar = df.select_dtypes(include=['number']).columns
             toplam_degerler = {}
             for col in sayisal_sutunlar:
@@ -159,11 +181,13 @@ else:
                 else:
                     toplam_degerler[col] = df[col].sum()
             
-            toplam_satiri = pd.DataFrame([toplam_degerler])
-            toplam_satiri['Tarih'] = 'TOPLAM'
-            df_tablo = pd.concat([df, toplam_satiri], ignore_index=True)
+            if toplam_degerler:
+                toplam_satiri = pd.DataFrame([toplam_degerler])
+                toplam_satiri['Tarih'] = 'TOPLAM'
+                df_tablo = pd.concat([df, toplam_satiri], ignore_index=True)
+            else:
+                df_tablo = df.copy()
             
-            # (Formatla fonksiyonu ve styling aynı kalacak...)
             def formatla(val, col_name):
                 if isinstance(val, (int, float)):
                     c_lower = col_name.lower()
@@ -185,16 +209,14 @@ else:
             
             st.divider()
 
-            # --- DİNAMİK GRAFİK ---
             st.subheader("📈 Veri Trendleri")
-            secilen_metrikler = st.multiselect("Metrikler:", sayisal_sutunlar.tolist(), default=sayisal_sutunlar.tolist()[:1])
+            secilen_metrikler = st.multiselect("Metrikler:", sayisal_sutunlar.tolist(), default=sayisal_sutunlar.tolist()[:1] if len(sayisal_sutunlar) > 0 else None)
             if secilen_metrikler:
                 df_grafik = df.set_index('Tarih')
                 st.line_chart(df_grafik[secilen_metrikler])
                 
             st.divider()
 
-            # --- YAPAY ZEKA (GEMINI) ---
             st.subheader("🤖 AI'dan Al Haberi")
             soru_onerileri = [
                 "✏️ Kendi sorumu yazacağım",
@@ -211,26 +233,15 @@ else:
                     modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                     model = genai.GenerativeModel(modeller[0])
                     
-                    prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Aksi belirtilmedikçe özet bilgi ver. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
+                    prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
                     
                     with st.spinner("Uzman raporu hazırlıyor..."):
                         cevap = model.generate_content(prompt)
-                        
                         st.write("---")
                         st.subheader("📋 Uzman Analiz Raporu")
-                        
-                        # Okunabilirliği artıran özel alan
                         st.markdown(
                             f"""
-                            <div style="
-                                background-color: #1e1e1e; 
-                                padding: 25px; 
-                                border-radius: 10px; 
-                                border-left: 5px solid #004d40;
-                                color: #e0e0e0;
-                                line-height: 1.6;
-                                font-size: 16px;
-                            ">
+                            <div style="background-color: #1e1e1e; padding: 25px; border-radius: 10px; border-left: 5px solid #004d40; color: #e0e0e0; line-height: 1.6; font-size: 16px;">
                                 {cevap.text.replace("\n", "<br>")}
                             </div>
                             """, 
