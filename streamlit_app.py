@@ -9,7 +9,7 @@ st.set_page_config(page_title="Yönetim Paneli", layout="wide")
 
 # --- GİZLİ API KÖPRÜSÜ AYARLARI ---
 API_URL = "https://script.google.com/macros/s/AKfycbxHd6N9TF2uzqJr-EhEfGyGH3j2oGTEiTRpKShSwwoWpJuVocyXVGHbWHyYNDL9uSQ/exec"
-API_TOKEN = "neco_baba_123"
+API_TOKEN = "manuka-fresh-reports"
 
 # --- VERİ TABANI (JSON DOSYASI) İŞLEMLERİ ---
 DATA_FILE = "rapor_veritabanı.json"
