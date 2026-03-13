@@ -198,7 +198,7 @@ else:
                 if secilen_kampanyalar:
                     df = df[df['CampaignName'].isin(secilen_kampanyalar)]
                     
-        # --- ALERT SİSTEMİ (YAN YANA KUTUCUKLU & GÜNLÜK TOPLAMALI) ---
+       # --- ALERT SİSTEMİ (YAN YANA KUTUCUKLU & GÜNLÜK TOPLAMALI) ---
             aktif_tarih = next((col for col in df.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
             
             if 'CampaignName' in df.columns and aktif_tarih:
@@ -208,17 +208,19 @@ else:
                 isler_yolunda = []
                 
                 df_alert = df.copy()
-                df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], format='%d.%m.%Y', errors='coerce')
+                
+                # ÇÖZÜM BURADA: Katı formatı sildik, akıllı okuyucuyu (dayfirst) açtık.
+                df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], errors='coerce', dayfirst=True)
                 
                 # 1. Metrikleri temizle ve zorla sayıya çevir
                 for metrik in ['Impressions', 'Clicks', 'Conversions']:
                     if metrik in df_alert.columns:
                         df_alert[metrik] = pd.to_numeric(df_alert[metrik], errors='coerce').fillna(0)
                 
-                # 2. ÇÖZÜM: Aynı güne ait verileri tek bir satırda TOPLA (Sum)
+                # 2. Aynı güne ait verileri tek bir satırda TOPLA (Sum)
                 agg_kurallari = {m: 'sum' for m in ['Impressions', 'Clicks', 'Conversions'] if m in df_alert.columns}
                 if 'CampaignStatus' in df_alert.columns:
-                    agg_kurallari['CampaignStatus'] = 'last' # Durum bilgisini kaybetmemek için sonuncuyu alıyoruz
+                    agg_kurallari['CampaignStatus'] = 'last'
                     
                 df_gruplu = df_alert.groupby(['CampaignName', 'gecici_tarih']).agg(agg_kurallari).reset_index()
                 
@@ -246,7 +248,6 @@ else:
                                     if gecmis_ort > 0:
                                         degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
                                         if degisim <= -20:
-                                            # Tarihi de ekrana basıyoruz ki hangi günü hesapladığı anlaşılsın
                                             kampanya_uyarilari.append(f"{metrik}: %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.1f} ➡️ Güncel [{guncel_tarih_str}]: {guncel:.1f})")
                             
                             if kampanya_uyarilari:
