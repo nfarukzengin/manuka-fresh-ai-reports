@@ -210,10 +210,10 @@ else:
                 df_alert = df.copy()
                 df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], format='%d.%m.%Y', errors='coerce')
                 
-                # Metrikleri saf sayıya çevirme
+                # HATALI NOKTA SİLME KODU UÇURULDU. Ana verideki temiz sayıları direkt kullanıyoruz.
                 for metrik in ['Impressions', 'Clicks', 'Conversions']:
                     if metrik in df_alert.columns:
-                        df_alert[metrik] = pd.to_numeric(df_alert[metrik].astype(str).str.replace(',', '').str.replace('.', ''), errors='coerce').fillna(0)
+                        df_alert[metrik] = pd.to_numeric(df_alert[metrik], errors='coerce').fillna(0)
                 
                 for kampanya in df_alert['CampaignName'].unique():
                     k_df = df_alert[df_alert['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
@@ -236,7 +236,8 @@ else:
                                     if gecmis_ort > 0:
                                         degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
                                         if degisim <= -20:
-                                            kampanya_uyarilari.append(f"{metrik}: %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.0f} ➡️ Güncel: {guncel:.0f})")
+                                            # Gösterim .1f yapıldı ki 4.5 gibi ondalıklar tam okunsun
+                                            kampanya_uyarilari.append(f"{metrik}: %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.1f} ➡️ Güncel: {guncel:.1f})")
                             
                             if kampanya_uyarilari:
                                 alarm_verenler[kampanya] = kampanya_uyarilari
