@@ -9,7 +9,7 @@ st.set_page_config(page_title="Yönetim Paneli", layout="wide")
 
 # --- GİZLİ API KÖPRÜSÜ AYARLARI ---
 API_URL = "https://script.google.com/macros/s/AKfycbxHd6N9TF2uzqJr-EhEfGyGH3j2oGTEiTRpKShSwwoWpJuVocyXVGHbWHyYNDL9uSQ/exec"
-API_TOKEN = "manuka-fresh-reports"
+API_TOKEN = "neco_baba_123"
 
 # --- VERİ TABANI (JSON DOSYASI) İŞLEMLERİ ---
 DATA_FILE = "rapor_veritabanı.json"
@@ -32,47 +32,28 @@ def sekmeleri_getir(sheet_id):
     try:
         return cevap.json()
     except Exception:
-        raise Exception(f"Google'dan JSON yerine şu cevap geldi: {cevap.text[:300]}")
+        raise Exception(f"Google'dan beklenmeyen bir yanıt geldi: {cevap.text[:100]}")
 
 @st.cache_data(show_spinner=False)
 def veri_cek(sheet_id, sayfa_adi):
     params = {"islem": "veri", "id": sheet_id, "sayfa": sayfa_adi, "token": API_TOKEN}
     cevap = requests.get(API_URL, params=params)
+    
     try:
         veri = cevap.json()
     except Exception:
-        raise Exception(f"Google'dan JSON yerine şu cevap geldi: {cevap.text[:300]}")
+        raise Exception(f"Google veriyi okuyamadı. Yanıt: {cevap.text[:100]}")
     
     if len(veri) > 1:
         df = pd.DataFrame(veri[1:], columns=veri[0])
     else:
         df = pd.DataFrame(veri)
         
+    # App Script'ten saf veriler (getValues) geleceği için doğrudan sayıya çeviriyoruz
     for col in df.columns:
         if col not in ['Tarih', 'Ürün Adı', 'Kampanya']:
-            def temizle(x):
-                if isinstance(x, str):
-                    x = x.replace('₺', '').replace('%', '').replace('None', '0').strip()
-                    if '.' in x and ',' in x: x = x.replace('.', '').replace(',', '.')
-                    elif ',' in x: x = x.replace(',', '.')
-                return x 
-            df[col] = df[col].apply(temizle)
-            df[col] = pd.to_numeric(df[col], errors='ignore')
-            
-    return df
-        
-    # App Script'ten gelen string (metin) verileri sayısala çevirme
-    for col in df.columns:
-        if col not in ['Tarih', 'Ürün Adı', 'Kampanya']:
-            def temizle(x):
-                if isinstance(x, str):
-                    x = x.replace('₺', '').replace('%', '').replace('None', '0').strip()
-                    if '.' in x and ',' in x: x = x.replace('.', '').replace(',', '.')
-                    elif ',' in x: x = x.replace(',', '.')
-                return x 
-            df[col] = df[col].apply(temizle)
-            # Eğer sütun sayısal ağırlıklıysa sayıya çevir, patlarsa metin bırak
-            df[col] = pd.to_numeric(df[col], errors='ignore')
+            # Metin karışmışsa veya boşsa 0'a çekip sistemi koruyoruz
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
     return df
 
@@ -167,8 +148,10 @@ else:
                         if st.button("🚀 Verileri Ekrana Dök", use_container_width=True):
                             with st.spinner("Veriler toparlanıyor..."):
                                 df = veri_cek(secilen_id, secilen_sayfa)
+                                
                                 if 'Tarih' in df.columns:
-                                    df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
+                                    # TÜRKÇE TARİH DÜZELTMESİ (dayfirst=True)
+                                    df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce', dayfirst=True)
                                     df = df.dropna(subset=['Tarih'])
                                     df['Tarih'] = df['Tarih'].dt.date
                                     maske = (df['Tarih'] >= baslangic) & (df['Tarih'] <= bitis)
