@@ -197,6 +197,36 @@ else:
                 secilen_kampanyalar = st.multiselect("🎯 Kampanya Seç:", df['CampaignName'].unique())
                 if secilen_kampanyalar:
                     df = df[df['CampaignName'].isin(secilen_kampanyalar)]
+                    # --- ALERT SİSTEMİ (Kampanya filtresinin hemen altına yapıştır) ---
+            if 'CampaignName' in df.columns and tarih_kolonu:
+                st.subheader("🚨 Performans Uyarıları")
+                uyarilar = []
+                df_alert = df.copy()
+                
+                # Matematik yapabilmek için tarihi geçici olarak algılatıyoruz
+                df_alert['gecici_tarih'] = pd.to_datetime(df_alert[tarih_kolonu], format='%d.%m.%Y', errors='coerce')
+                
+                for kampanya in df_alert['CampaignName'].unique():
+                    k_df = df_alert[df_alert['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
+                    if len(k_df) >= 8: # 1 güncel + 7 geçmiş gün varsa çalışır
+                        son_veri = k_df.iloc[-1]
+                        gecmis_7 = k_df.iloc[-8:-1]
+                        
+                        for metrik in ['Impressions', 'Clicks', 'Conversions']:
+                            if metrik in k_df.columns:
+                                gecmis_ort = gecmis_7[metrik].mean()
+                                guncel = son_veri[metrik]
+                                if gecmis_ort > 0:
+                                    degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
+                                    if degisim <= -20:
+                                        uyarilar.append(f"📉 **{kampanya}**: {metrik} son 7 gün ortalamasına göre **%{abs(degisim):.1f} düştü**! (Ort: {gecmis_ort:.0f} ➡️ Güncel: {guncel:.0f})")
+                
+                if uyarilar:
+                    with st.expander("⚠️ Kritik Düşüş Tespit Edildi!", expanded=True):
+                        for u in uyarilar: st.error(u)
+                else:
+                    st.success("✅ Ekranda seçili kampanyalarda %20'yi aşan kritik bir düşüş yok.")
+            # -------------------------------------------------------------------
             
             tarih_kolonu = None
             for col in df.columns:
