@@ -29,18 +29,37 @@ def verileri_kaydet(veriler):
 def sekmeleri_getir(sheet_id):
     params = {"islem": "sekmeler", "id": sheet_id, "token": API_TOKEN}
     cevap = requests.get(API_URL, params=params)
-    return cevap.json()
+    try:
+        return cevap.json()
+    except Exception:
+        raise Exception(f"Google'dan JSON yerine şu cevap geldi: {cevap.text[:300]}")
 
 @st.cache_data(show_spinner=False)
 def veri_cek(sheet_id, sayfa_adi):
     params = {"islem": "veri", "id": sheet_id, "sayfa": sayfa_adi, "token": API_TOKEN}
     cevap = requests.get(API_URL, params=params)
-    veri = cevap.json()
+    try:
+        veri = cevap.json()
+    except Exception:
+        raise Exception(f"Google'dan JSON yerine şu cevap geldi: {cevap.text[:300]}")
     
     if len(veri) > 1:
         df = pd.DataFrame(veri[1:], columns=veri[0])
     else:
         df = pd.DataFrame(veri)
+        
+    for col in df.columns:
+        if col not in ['Tarih', 'Ürün Adı', 'Kampanya']:
+            def temizle(x):
+                if isinstance(x, str):
+                    x = x.replace('₺', '').replace('%', '').replace('None', '0').strip()
+                    if '.' in x and ',' in x: x = x.replace('.', '').replace(',', '.')
+                    elif ',' in x: x = x.replace(',', '.')
+                return x 
+            df[col] = df[col].apply(temizle)
+            df[col] = pd.to_numeric(df[col], errors='ignore')
+            
+    return df
         
     # App Script'ten gelen string (metin) verileri sayısala çevirme
     for col in df.columns:
