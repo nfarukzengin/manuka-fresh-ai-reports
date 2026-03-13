@@ -132,6 +132,14 @@ else:
 
         mevcut_raporlar = st.session_state.sheets_verileri[aktif_marka]
         if mevcut_raporlar:
+            with st.expander("🗑️ Rapor Yönetimi / Sil"):
+                silinecek = st.selectbox("Silmek istediğin raporu seç:", ["Seçiniz..."] + list(mevcut_raporlar.keys()), key="silme_kutusu")
+                if st.button("Seçili Raporu Sistemden Sil"):
+                    if silinecek != "Seçiniz...":
+                        del st.session_state.sheets_verileri[aktif_marka][silinecek]
+                        verileri_kaydet(st.session_state.sheets_verileri)
+                        st.warning(f"{silinecek} silindi.")
+                        st.rerun()
             st.subheader("📁 Kayıtlı Raporların")
             secilen_rapor = st.selectbox("Hangi raporu inceleyeceğiz?", list(mevcut_raporlar.keys()))
             secilen_id = mevcut_raporlar[secilen_rapor]
