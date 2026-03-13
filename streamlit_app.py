@@ -7,6 +7,7 @@ import requests
 
 st.set_page_config(page_title="Yönetim Paneli", layout="wide")
 
+# --- GİZLİ API KÖPRÜSÜ AYARLARI ---
 API_URL = "https://script.google.com/macros/s/AKfycbxHd6N9TF2uzqJr-EhEfGyGH3j2oGTEiTRpKShSwwoWpJuVocyXVGHbWHyYNDL9uSQ/exec"
 API_TOKEN = "manuka-fresh-reports"
 DATA_FILE = "rapor_veritabanı.json"
@@ -17,36 +18,27 @@ def verileri_yukle():
             return json.load(f)
     return {"MANUKA": {}, "FRESH SCARFS": {}}
 
-def id_temizle(gelen_id):
-    gelen_id = str(gelen_id).strip() # Boşlukları siler
-    if "spreadsheets/d/" in gelen_id:
-        return gelen_id.split("spreadsheets/d/")[1].split("/")[0]
-    return gelen_id
-
 def verileri_kaydet(veriler):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(veriler, f, ensure_ascii=False, indent=4)
 
+# --- VERİ ÇEKME FONKSİYONLARI ---
 @st.cache_data(show_spinner=False)
-sheet_id = id_temizle(sheet_id)
 def sekmeleri_getir(sheet_id):
     params = {"islem": "sekmeler", "id": sheet_id, "token": API_TOKEN}
     cevap = requests.get(API_URL, params=params)
     try: return cevap.json()
-    except Exception: return f"Hata: {cevap.text[:200]}"
+    except Exception: raise Exception(f"Google yanıtı okunamadı: {cevap.text[:100]}")
 
 @st.cache_data(show_spinner=False)
-sheet_id = id_temizle(sheet_id)
 def veri_cek(sheet_id, sayfa_adi):
     params = {"islem": "veri", "id": sheet_id, "sayfa": sayfa_adi, "token": API_TOKEN}
     cevap = requests.get(API_URL, params=params)
     try: veri = cevap.json()
-    except Exception: raise Exception(f"Veri okunamadı: {cevap.text[:200]}")
+    except Exception: raise Exception(f"Veri okunamadı: {cevap.text[:100]}")
     
-    if isinstance(veri, str) and ("hata" in veri.lower() or "error" in veri.lower()):
-        raise Exception(veri)
-        
     if len(veri) > 1:
+        # Akıllı Başlık Bulucu (GA4 için)
         baslik_index = 0
         for i, satir in enumerate(veri[:25]):
             satir_kucuk = [str(hucre).strip().lower() for hucre in satir]
@@ -55,6 +47,8 @@ def veri_cek(sheet_id, sayfa_adi):
                 break
         
         temiz_veri = veri[baslik_index:]
+        
+        # İkiz Sütun Dedektörü
         ham_kolonlar = [str(k).strip() if str(k).strip() != "" else f"Adsiz_{i}" for i, k in enumerate(temiz_veri[0])]
         temiz_kolonlar = []
         for k in ham_kolonlar:
@@ -69,31 +63,33 @@ def veri_cek(sheet_id, sayfa_adi):
     else:
         df = pd.DataFrame(veri)
         
+    # --- TAŞ FIRIN VERİ TEMİZLEYİCİ ---
     for col in df.columns:
         if col.lower() not in ['tarih', 'date', 'gün', 'day', 'sessionsourcemedium', 'ürün adı', 'kampanya', 'source', 'medium']:
             def temizle(x):
-                if pd.isna(x) or str(x).strip() in ['', 'None']: return 0
-                if isinstance(x, (int, float)): return x
-                x = str(x).replace('₺', '').replace('%', '').strip()
-                if '.' in x and ',' in x:
-                    if x.rfind(',') > x.rfind('.'): x = x.replace('.', '').replace(',', '.')
-                    else: x = x.replace(',', '')
-                elif ',' in x:
-                    if len(x.split(',')[-1]) != 3: x = x.replace(',', '.')
-                    else: x = x.replace(',', '')
-                elif '.' in x:
-                    if len(x.split('.')[-1]) == 3 and len(x.split('.')) > 1: x = x.replace('.', '')
+                if isinstance(x, str):
+                    x = x.replace('₺', '').replace('%', '').replace('None', '0').strip()
+                    if '.' in x and ',' in x:
+                        x = x.replace('.', '').replace(',', '.')
+                    elif ',' in x:
+                        x = x.replace(',', '.')
+                    elif '.' in x:
+                        parts = x.split('.')
+                        if len(parts) > 2: x = x.replace('.', '')
+                        elif len(parts[-1]) == 3: x = x.replace('.', '')
                 return x 
             df[col] = df[col].apply(temizle)
             df[col] = pd.to_numeric(df[col], errors='ignore')
             
     return df
 
+# --- HAFIZA (SESSION STATE) ---
 if 'giris_yapti_mi' not in st.session_state: st.session_state.giris_yapti_mi = False
 if 'marka' not in st.session_state: st.session_state.marka = None
 if 'aktif_veri' not in st.session_state: st.session_state.aktif_veri = None
 if 'sheets_verileri' not in st.session_state: st.session_state.sheets_verileri = verileri_yukle()
 
+# --- GİRİŞ SAYFASI ---
 if not st.session_state.giris_yapti_mi:
     st.title("✋ Hop Hemşerim Nereye? Parolayı Söyle!")
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -102,6 +98,8 @@ if not st.session_state.giris_yapti_mi:
         if st.button("İçeri Gir", use_container_width=True):
             if sifre == "fresh123": st.session_state.giris_yapti_mi = True; st.rerun()
             else: st.error("Yanlış parola!")
+
+# --- ANA UYGULAMA ---
 else:
     if st.session_state.marka is None:
         if st.button("🚪 Çıkış Yap"): st.session_state.giris_yapti_mi = False; st.rerun()
@@ -112,6 +110,7 @@ else:
             if st.button("👗 MANUKA", use_container_width=True): st.session_state.marka = "MANUKA"; st.rerun()
         with col2:
             if st.button("🧣 FRESH SCARFS", use_container_width=True): st.session_state.marka = "FRESH SCARFS"; st.rerun()
+
     else:
         aktif_marka = st.session_state.marka
         col_b, col_btn = st.columns([4, 1])
@@ -133,14 +132,6 @@ else:
 
         mevcut_raporlar = st.session_state.sheets_verileri[aktif_marka]
         if mevcut_raporlar:
-            with st.expander("🗑️ Rapor Yönetimi / Sil"):
-                silinecek = st.selectbox("Silmek istediğin raporu seç:", ["Seçiniz..."] + list(mevcut_raporlar.keys()), key="silme_kutusu")
-                if st.button("Seçili Raporu Sistemden Sil"):
-                    if silinecek != "Seçiniz...":
-                        del st.session_state.sheets_verileri[aktif_marka][silinecek]
-                        verileri_kaydet(st.session_state.sheets_verileri)
-                        st.warning(f"{silinecek} silindi.")
-                        st.rerun()
             st.subheader("📁 Kayıtlı Raporların")
             secilen_rapor = st.selectbox("Hangi raporu inceleyeceğiz?", list(mevcut_raporlar.keys()))
             secilen_id = mevcut_raporlar[secilen_rapor]
@@ -174,8 +165,10 @@ else:
                                     
                                     df = df.dropna(subset=[tarih_kolonu])
                                     df[tarih_kolonu] = df[tarih_kolonu].dt.date
+                                    
                                     maske = (df[tarih_kolonu] >= baslangic) & (df[tarih_kolonu] <= bitis)
                                     df = df.loc[maske].copy()
+                                    
                                     df[tarih_kolonu] = pd.to_datetime(df[tarih_kolonu]).dt.strftime('%d.%m.%Y')
                                 
                                 if not df.empty:
@@ -183,14 +176,20 @@ else:
                                 else:
                                     st.warning("Bu tarihler arasında veri yok kiral.")
                                     st.session_state.aktif_veri = None
-                    else: 
-                        st.error(f"Dosyaya ulaşılamadı. Google'ın cevabı: {sayfalar}")
-                except Exception as e: 
-                    st.error(f"Bağlantı Hatası: {e}")
+                    else: st.error("API sekme isimlerini alamadı.")
+                except Exception as e: st.error(f"Hata: {e}")
 
+        # ==========================================
+        # TABLO, GRAFİK VE AI BÖLÜMÜ
+        # ==========================================
         if st.session_state.aktif_veri is not None:
             df = st.session_state.aktif_veri.copy()
-            tarih_kolonu = next((col for col in df.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
+            
+            tarih_kolonu = None
+            for col in df.columns:
+                if col.lower() in ['tarih', 'date', 'gün', 'day']:
+                    tarih_kolonu = col
+                    break
             
             sayisal_sutunlar = df.select_dtypes(include=['number']).columns
             toplam_degerler = {}
@@ -203,8 +202,10 @@ else:
             
             if toplam_degerler:
                 toplam_satiri = pd.DataFrame([toplam_degerler])
-                if tarih_kolonu: toplam_satiri[tarih_kolonu] = 'TOPLAM'
-                else: toplam_satiri[df.columns[0]] = 'TOPLAM'
+                if tarih_kolonu:
+                    toplam_satiri[tarih_kolonu] = 'TOPLAM'
+                else:
+                    toplam_satiri[df.columns[0]] = 'TOPLAM'
                 df_tablo = pd.concat([df, toplam_satiri], ignore_index=True)
             else:
                 df_tablo = df.copy()
@@ -230,6 +231,7 @@ else:
             st.dataframe(df_tablo.style.apply(lambda row: ['background-color: #004d40; color: white; font-weight: bold'] * len(row) if row.get(tarih_kolonu) == 'TOPLAM' or row.iloc[0] == 'TOPLAM' else [''] * len(row), axis=1), use_container_width=True)
             
             st.divider()
+
             st.subheader("📈 Veri Trendleri")
             secilen_metrikler = st.multiselect("Metrikler:", sayisal_sutunlar.tolist(), default=sayisal_sutunlar.tolist()[:1] if len(sayisal_sutunlar) > 0 else None)
             if secilen_metrikler and tarih_kolonu:
@@ -237,6 +239,7 @@ else:
                 st.line_chart(df_grafik[secilen_metrikler])
                 
             st.divider()
+
             st.subheader("🤖 AI'dan Al Haberi")
             soru_onerileri = [
                 "✏️ Kendi sorumu yazacağım",
