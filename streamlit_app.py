@@ -45,14 +45,45 @@ def veri_cek(sheet_id, sayfa_adi):
         raise Exception(f"Google veriyi okuyamadı. Yanıt: {cevap.text[:100]}")
     
     if len(veri) > 1:
-        df = pd.DataFrame(veri[1:], columns=veri[0])
+        # --- AKILLI BAŞLIK BULUCU ---
+        # İlk 25 satıra bak, 'Tarih' veya 'Date' geçen satırı tablonun başı kabul et
+        baslik_index = 0
+        for i, satir in enumerate(veri[:25]):
+            satir_kucuk = [str(hucre).strip().lower() for hucre in satir]
+            if 'tarih' in satir_kucuk or 'date' in satir_kucuk or 'gün' in satir_kucuk:
+                baslik_index = i
+                break
+        
+        # Eğer kelime bulamazsa, en çok dolu hücresi olan satırı başlık yap
+        if baslik_index == 0:
+            max_dolu = 0
+            for i, satir in enumerate(veri[:25]):
+                dolu_sayisi = len([h for h in satir if str(h).strip() != ""])
+                if dolu_sayisi > max_dolu:
+                    max_dolu = dolu_sayisi
+                    baslik_index = i
+
+        # Veriyi gereksiz üst kısımdan kurtar (Sadece tablonun olduğu yeri al)
+        temiz_veri = veri[baslik_index:]
+        
+        # İkiz ve Boş Sütun Dedektörü
+        ham_kolonlar = [str(k).strip() if str(k).strip() != "" else "Adsiz_Kolon" for k in temiz_veri[0]]
+        temiz_kolonlar = []
+        for k in ham_kolonlar:
+            orijinal = k
+            sayac = 1
+            while k in temiz_kolonlar:
+                k = f"{orijinal}_{sayac}"
+                sayac += 1
+            temiz_kolonlar.append(k)
+            
+        df = pd.DataFrame(temiz_veri[1:], columns=temiz_kolonlar)
     else:
         df = pd.DataFrame(veri)
         
-    # App Script'ten saf veriler (getValues) geleceği için doğrudan sayıya çeviriyoruz
+    # Sütunları sayısal formata çevir
     for col in df.columns:
-        if col not in ['Tarih', 'Ürün Adı', 'Kampanya']:
-            # Metin karışmışsa veya boşsa 0'a çekip sistemi koruyoruz
+        if col not in ['Tarih', 'Date', 'Ürün Adı', 'Kampanya']:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
     return df
