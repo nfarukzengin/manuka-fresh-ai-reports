@@ -198,18 +198,20 @@ else:
                 if secilen_kampanyalar:
                     df = df[df['CampaignName'].isin(secilen_kampanyalar)]
                     
-            # --- ALERT SİSTEMİ (Kampanya filtresinin hemen altına yapıştır) ---
-            if 'CampaignName' in df.columns and tarih_kolonu:
+           # --- ALERT SİSTEMİ ---
+            # Hata vermemesi için tarih sütununu tam burada tespit ediyoruz:
+            aktif_tarih = next((col for col in df.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
+            
+            if 'CampaignName' in df.columns and aktif_tarih:
                 st.subheader("🚨 Performans Uyarıları")
                 uyarilar = []
                 df_alert = df.copy()
                 
-                # Matematik yapabilmek için tarihi geçici olarak algılatıyoruz
-                df_alert['gecici_tarih'] = pd.to_datetime(df_alert[tarih_kolonu], format='%d.%m.%Y', errors='coerce')
+                df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], format='%d.%m.%Y', errors='coerce')
                 
                 for kampanya in df_alert['CampaignName'].unique():
                     k_df = df_alert[df_alert['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
-                    if len(k_df) >= 8: # 1 güncel + 7 geçmiş gün varsa çalışır
+                    if len(k_df) >= 8: # 1 güncel + 7 geçmiş gün
                         son_veri = k_df.iloc[-1]
                         gecmis_7 = k_df.iloc[-8:-1]
                         
