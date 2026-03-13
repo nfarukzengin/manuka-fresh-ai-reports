@@ -47,7 +47,19 @@ def veri_cek(sheet_id, sayfa_adi):
                 break
         
         temiz_veri = veri[baslik_index:]
-        
+
+        # --- SAYFA TASARIMI BURADA BAŞLIYOR ---
+tab_ana, tab_alarm = st.tabs(["📊 Ana Ekran", "🚨 Alarm Merkezi"])
+
+with tab_ana:
+    st.title("👋 Fresh Scarfs Dünyasına Hoş Geldin!")
+    # Tablolar, grafikler, filtreler ve AI butonu dahil 
+    # her şey bu 'with tab_ana:' satırının bir tık (4 boşluk) içinde olacak!
+
+with tab_alarm:
+    st.header("🚨 Alarm Merkezi ve Kurallar")
+    # Alarm şalterleri ve Impressions kurgusu kodlarını buraya yapıştıracaksın.
+    
         # İkiz Sütun Dedektörü
         ham_kolonlar = [str(k).strip() if str(k).strip() != "" else f"Adsiz_{i}" for i, k in enumerate(temiz_veri[0])]
         temiz_kolonlar = []
@@ -408,23 +420,18 @@ else:
             kullanici_sorusu = st.text_area("Sorun:") if secilen_soru == "✏️ Kendi sorumu yazacağım" else secilen_soru
                 
             if st.button("🧠 AI Analizini Başlat", use_container_width=True):
-                try:
-                    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                    model = genai.GenerativeModel(modeller[0])
-                    prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
-                    with st.spinner("Uzman raporu hazırlıyor..."):
-                        cevap = model.generate_content(prompt)
-                        st.write("---")
-                        st.subheader("📋 Uzman Analiz Raporu")
-                      tab_ana, tab_alarm = st.tabs(["📊 Ana Ekran", "🚨 Alarm Merkezi"])
-
-with tab_ana:
-    st.title("👋 Fresh Scarfs Dünyasına Hoş Geldin!")
-    # NOT: Eski kodundaki mevcut filtreler, tablolar ve grafiklerin hepsini 
-    # bir 'Tab' (boşluk) içeri alarak bu 'with tab_ana:' bloğunun altına taşı.
-    with tab_alarm:
-    st.header("🚨 Alarm Merkezi ve Kurallar")
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        model = genai.GenerativeModel(modeller[0])
+        prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
+        with st.spinner("Uzman raporu hazırlıyor..."):
+            cevap = model.generate_content(prompt)
+            st.write("---")
+            st.subheader("📋 Uzman Analiz Raporu")
+            st.write(cevap.text) # AI'ın cevabını ekrana basan kısım burası!
+    except Exception as e:
+        st.error(f"Hata oluştu: {e}")
     
     # --- KURAL 1: IMPRESSIONS KURGUSU ---
     with st.expander("👁️ Impressions Kurgusu", expanded=True):
