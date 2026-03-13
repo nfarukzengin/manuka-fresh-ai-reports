@@ -208,12 +208,33 @@ else:
             if st.button("🧠 AI Analizini Başlat", use_container_width=True):
                 try:
                     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    # Uygun model seçimi (Hata vermemesi için dinamik liste)
                     modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                     model = genai.GenerativeModel(modeller[0])
                     
-                    prompt = f"Sen bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
-                    cevap = model.generate_content(prompt)
-                    st.info(cevap.text)
+                    prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
+                    
+                    with st.spinner("Uzman raporu hazırlıyor..."):
+                        cevap = model.generate_content(prompt)
+                        
+                        st.write("---")
+                        st.subheader("📋 Uzman Analiz Raporu")
+                        
+                        # Okunabilirliği artıran özel alan
+                        st.markdown(
+                            f"""
+                            <div style="
+                                background-color: #1e1e1e; 
+                                padding: 25px; 
+                                border-radius: 10px; 
+                                border-left: 5px solid #004d40;
+                                color: #e0e0e0;
+                                line-height: 1.6;
+                                font-size: 16px;
+                            ">
+                                {cevap.text.replace("\n", "<br>")}
+                            </div>
+                            """, 
+                            unsafe_allow_html=True
+                        )
                 except Exception as e:
                     st.error(f"AI Hatası: {e}")
