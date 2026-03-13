@@ -198,17 +198,19 @@ else:
                 if secilen_kampanyalar:
                     df = df[df['CampaignName'].isin(secilen_kampanyalar)]
                     
-          # --- ALERT SİSTEMİ ---
+         # --- ALERT SİSTEMİ (YAN YANA KUTUCUKLU) ---
             aktif_tarih = next((col for col in df.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
             
             if 'CampaignName' in df.columns and aktif_tarih:
-                st.subheader("🚨 Performans Uyarıları")
-                uyarilar = []
-                df_alert = df.copy()
+                st.subheader("📊 Performans Durum Merkezi")
                 
+                alarm_verenler = {}
+                isler_yolunda = []
+                
+                df_alert = df.copy()
                 df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], format='%d.%m.%Y', errors='coerce')
                 
-                # Metrikleri zorla saf sayıya çeviriyoruz
+                # Metrikleri saf sayıya çevirme
                 for metrik in ['Impressions', 'Clicks', 'Conversions']:
                     if metrik in df_alert.columns:
                         df_alert[metrik] = pd.to_numeric(df_alert[metrik].astype(str).str.replace(',', '').str.replace('.', ''), errors='coerce').fillna(0)
@@ -217,15 +219,15 @@ else:
                     k_df = df_alert[df_alert['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
                     
                     if not k_df.empty:
-                        # KAMPANYA DURUMU KONTROLÜ (Sadece aktifleri tara)
+                        # Sadece aktif kampanyalar
                         if 'CampaignStatus' in k_df.columns:
                             son_durum = str(k_df.iloc[-1]['CampaignStatus']).strip().upper()
-                            if son_durum != 'ENABLED':
-                                continue # Kampanya durdurulmuşsa veya silinmişse alarmı atla!
-                        
+                            if son_durum != 'ENABLED': continue
+                            
                         if len(k_df) >= 8: # 1 güncel + 7 geçmiş gün
                             son_veri = k_df.iloc[-1]
                             gecmis_7 = k_df.iloc[-8:-1]
+                            kampanya_uyarilari = []
                             
                             for metrik in ['Impressions', 'Clicks', 'Conversions']:
                                 if metrik in k_df.columns:
@@ -234,13 +236,36 @@ else:
                                     if gecmis_ort > 0:
                                         degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
                                         if degisim <= -20:
-                                            uyarilar.append(f"📉 **{kampanya}**: {metrik} son 7 gün ortalamasına göre **%{abs(degisim):.1f} düştü**! (Ort: {gecmis_ort:.0f} ➡️ Güncel: {guncel:.0f})")
+                                            kampanya_uyarilari.append(f"{metrik}: %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.0f} ➡️ Güncel: {guncel:.0f})")
+                            
+                            if kampanya_uyarilari:
+                                alarm_verenler[kampanya] = kampanya_uyarilari
+                            else:
+                                isler_yolunda.append(kampanya)
                 
-                if uyarilar:
-                    with st.expander("⚠️ Kritik Düşüş Tespit Edildi! (Sadece Aktif Kampanyalar)", expanded=True):
-                        for u in uyarilar: st.error(u)
-                else:
-                    st.success("✅ Ekranda seçili aktif kampanyalarda %20'yi aşan kritik bir düşüş yok.")
+                # --- YAN YANA SEÇİM KUTUCUKLARI ---
+                durum_secimi = st.radio(
+                    "Kampanyaları Filtrele:",
+                    ["🔴 Alarm Verenler", "🟢 İşler Yolunda"],
+                    horizontal=True
+                )
+                
+                st.write("---")
+                
+                if durum_secimi == "🔴 Alarm Verenler":
+                    if alarm_verenler:
+                        for kampanya, hatalar in alarm_verenler.items():
+                            with st.expander(f"📉 {kampanya}", expanded=True):
+                                for hata in hatalar: st.error(hata)
+                    else:
+                        st.success("Harika! %20'den fazla düşüş yaşayan aktif kampanya yok.")
+                        
+                elif durum_secimi == "🟢 İşler Yolunda":
+                    if isler_yolunda:
+                        for kampanya in isler_yolunda:
+                            st.success(f"✅ **{kampanya}** (Kritik düşüş yok, stabil veya artışta)")
+                    else:
+                        st.warning("Şu an için sorunsuz ilerleyen aktif kampanya bulunmuyor.")
             # -------------------------------------------------------------------
             
             tarih_kolonu = None
