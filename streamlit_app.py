@@ -208,31 +208,39 @@ else:
                 
                 df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], format='%d.%m.%Y', errors='coerce')
                 
-                # ÇÖZÜM BURADA: Metrikleri zorla saf sayıya çeviriyoruz ki hesaplama patlamasın
+                # Metrikleri zorla saf sayıya çeviriyoruz
                 for metrik in ['Impressions', 'Clicks', 'Conversions']:
                     if metrik in df_alert.columns:
                         df_alert[metrik] = pd.to_numeric(df_alert[metrik].astype(str).str.replace(',', '').str.replace('.', ''), errors='coerce').fillna(0)
                 
                 for kampanya in df_alert['CampaignName'].unique():
                     k_df = df_alert[df_alert['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
-                    if len(k_df) >= 8: # 1 güncel + 7 geçmiş gün
-                        son_veri = k_df.iloc[-1]
-                        gecmis_7 = k_df.iloc[-8:-1]
+                    
+                    if not k_df.empty:
+                        # KAMPANYA DURUMU KONTROLÜ (Sadece aktifleri tara)
+                        if 'CampaignStatus' in k_df.columns:
+                            son_durum = str(k_df.iloc[-1]['CampaignStatus']).strip().upper()
+                            if son_durum != 'ENABLED':
+                                continue # Kampanya durdurulmuşsa veya silinmişse alarmı atla!
                         
-                        for metrik in ['Impressions', 'Clicks', 'Conversions']:
-                            if metrik in k_df.columns:
-                                gecmis_ort = gecmis_7[metrik].mean()
-                                guncel = son_veri[metrik]
-                                if gecmis_ort > 0:
-                                    degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
-                                    if degisim <= -20:
-                                        uyarilar.append(f"📉 **{kampanya}**: {metrik} son 7 gün ortalamasına göre **%{abs(degisim):.1f} düştü**! (Ort: {gecmis_ort:.0f} ➡️ Güncel: {guncel:.0f})")
+                        if len(k_df) >= 8: # 1 güncel + 7 geçmiş gün
+                            son_veri = k_df.iloc[-1]
+                            gecmis_7 = k_df.iloc[-8:-1]
+                            
+                            for metrik in ['Impressions', 'Clicks', 'Conversions']:
+                                if metrik in k_df.columns:
+                                    gecmis_ort = gecmis_7[metrik].mean()
+                                    guncel = son_veri[metrik]
+                                    if gecmis_ort > 0:
+                                        degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
+                                        if degisim <= -20:
+                                            uyarilar.append(f"📉 **{kampanya}**: {metrik} son 7 gün ortalamasına göre **%{abs(degisim):.1f} düştü**! (Ort: {gecmis_ort:.0f} ➡️ Güncel: {guncel:.0f})")
                 
                 if uyarilar:
-                    with st.expander("⚠️ Kritik Düşüş Tespit Edildi!", expanded=True):
+                    with st.expander("⚠️ Kritik Düşüş Tespit Edildi! (Sadece Aktif Kampanyalar)", expanded=True):
                         for u in uyarilar: st.error(u)
                 else:
-                    st.success("✅ Ekranda seçili kampanyalarda %20'yi aşan kritik bir düşüş yok.")
+                    st.success("✅ Ekranda seçili aktif kampanyalarda %20'yi aşan kritik bir düşüş yok.")
             # -------------------------------------------------------------------
             
             tarih_kolonu = None
