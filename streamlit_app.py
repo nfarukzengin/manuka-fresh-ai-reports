@@ -191,7 +191,7 @@ else:
         # ==========================================
         # TABLO, GRAFİK VE AI BÖLÜMÜ
         # ==========================================
-       if st.session_state.aktif_veri is not None and 'ham_veri' in st.session_state:
+        if st.session_state.aktif_veri is not None and 'ham_veri' in st.session_state:
             tab1, tab2 = st.tabs(["📊 Rapor Analizi", "🚨 Alarm Merkezi (Slack Hazırlığı)"])
             
             with tab1:
