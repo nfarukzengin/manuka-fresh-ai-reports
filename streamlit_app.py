@@ -49,17 +49,17 @@ def veri_cek(sheet_id, sayfa_adi):
         temiz_veri = veri[baslik_index:]
 
         # --- SAYFA TASARIMI BURADA BAŞLIYOR ---
-tab_ana, tab_alarm = st.tabs(["📊 Ana Ekran", "🚨 Alarm Merkezi"])
+        tab_ana, tab_alarm = st.tabs(["📊 Ana Ekran", "🚨 Alarm Merkezi"])
 
-with tab_ana:
-    st.title("👋 Fresh Scarfs Dünyasına Hoş Geldin!")
-    # Tablolar, grafikler, filtreler ve AI butonu dahil 
-    # her şey bu 'with tab_ana:' satırının bir tık (4 boşluk) içinde olacak!
+        with tab_ana:
+            st.title("👋 Fresh Scarfs Dünyasına Hoş Geldin!")
+            # Tablolar, grafikler, filtreler ve AI butonu dahil 
+            # her şey bu 'with tab_ana:' satırının bir tık (4 boşluk) içinde olacak!
 
-with tab_alarm:
-    st.header("🚨 Alarm Merkezi ve Kurallar")
-    # Alarm şalterleri ve Impressions kurgusu kodlarını buraya yapıştıracaksın.
-    
+        with tab_alarm:
+            st.header("🚨 Alarm Merkezi ve Kurallar")
+            # Alarm şalterleri ve Impressions kurgusu kodlarını buraya yapıştıracaksın.
+        
         # İkiz Sütun Dedektörü
         ham_kolonlar = [str(k).strip() if str(k).strip() != "" else f"Adsiz_{i}" for i, k in enumerate(temiz_veri[0])]
         temiz_kolonlar = []
@@ -270,6 +270,7 @@ else:
                         if isler_yolunda:
                             for kampanya in isler_yolunda: st.success(f"✅ **{kampanya}**")
                         else: st.warning("Şu an için sorunsuz ilerleyen aktif kampanya bulunmuyor.")
+            
             df = st.session_state.aktif_veri.copy()
             # Kampanya Filtresi
             if 'CampaignName' in df.columns:
@@ -277,7 +278,7 @@ else:
                 if secilen_kampanyalar:
                     df = df[df['CampaignName'].isin(secilen_kampanyalar)]
                     
-       # --- ALERT SİSTEMİ (YAN YANA KUTUCUKLU & GÜNLÜK TOPLAMALI) ---
+            # --- ALERT SİSTEMİ (YAN YANA KUTUCUKLU & GÜNLÜK TOPLAMALI) ---
             aktif_tarih = next((col for col in df.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
             
             if 'CampaignName' in df.columns and aktif_tarih:
@@ -328,12 +329,12 @@ else:
                                         degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
                                         if degisim <= -20:
                                             kampanya_uyarilari.append(f"{metrik}: %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.1f} ➡️ Güncel [{guncel_tarih_str}]: {guncel:.1f})")
-                            
-                            if kampanya_uyarilari:
-                                alarm_verenler[kampanya] = kampanya_uyarilari
-                            else:
-                                isler_yolunda.append(kampanya)
-                
+                        
+                        if kampanya_uyarilari:
+                            alarm_verenler[kampanya] = kampanya_uyarilari
+                        else:
+                            isler_yolunda.append(kampanya)
+            
                 # --- YAN YANA SEÇİM KUTUCUKLARI ---
                 durum_secimi = st.radio("Kampanyaları Filtrele:", ["🔴 Alarm Verenler", "🟢 İşler Yolunda"], horizontal=True)
                 st.write("---")
@@ -420,72 +421,72 @@ else:
             kullanici_sorusu = st.text_area("Sorun:") if secilen_soru == "✏️ Kendi sorumu yazacağım" else secilen_soru
                 
             if st.button("🧠 AI Analizini Başlat", use_container_width=True):
-    try:
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        model = genai.GenerativeModel(modeller[0])
-        prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
-        with st.spinner("Uzman raporu hazırlıyor..."):
-            cevap = model.generate_content(prompt)
-            st.write("---")
-            st.subheader("📋 Uzman Analiz Raporu")
-            st.write(cevap.text) # AI'ın cevabını ekrana basan kısım burası!
-    except Exception as e:
-        st.error(f"Hata oluştu: {e}")
-    
-    # --- KURAL 1: IMPRESSIONS KURGUSU ---
-    with st.expander("👁️ Impressions Kurgusu", expanded=True):
-        st.info("Kural: Dünün Impressions değeri, ondan önceki 7 günün ortalamasından %20 aşağıdaysa alarm oluşturur.")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            imp_kural_aktif = st.toggle("⚙️ Kuralı Çalıştır", value=True, key="imp_kural")
-        with col2:
-            imp_slack_aktif = st.toggle("💬 Slack Bildirimi", value=False, key="imp_slack")
+                try:
+                    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+                    modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    model = genai.GenerativeModel(modeller[0])
+                    prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
+                    with st.spinner("Uzman raporu hazırlıyor..."):
+                        cevap = model.generate_content(prompt)
+                        st.write("---")
+                        st.subheader("📋 Uzman Analiz Raporu")
+                        st.write(cevap.text) # AI'ın cevabını ekrana basan kısım burası!
+                except Exception as e:
+                    st.error(f"Hata oluştu: {e}")
             
-        if imp_kural_aktif and 'ham_veri' in st.session_state:
-            df_alert = st.session_state.ham_veri.copy()
-            aktif_tarih = next((col for col in df_alert.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
-            
-            if aktif_tarih:
-                df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], errors='coerce', dayfirst=True)
-                df_alert['Impressions'] = pd.to_numeric(df_alert['Impressions'], errors='coerce').fillna(0)
-                
-                # Sadece düne kadar olan verileri al (Bugünü işleme katma)
-                bugun = pd.Timestamp.today().normalize()
-                dun = bugun - pd.Timedelta(days=1)
-                df_alert = df_alert[df_alert['gecici_tarih'] <= dun]
-                
-                # Verileri toparla
-                agg_kurallari = {'Impressions': 'sum'}
-                if 'CampaignStatus' in df_alert.columns: agg_kurallari['CampaignStatus'] = 'last'
-                df_gruplu = df_alert.groupby(['CampaignName', 'gecici_tarih']).agg(agg_kurallari).reset_index()
-                
-                uyarilar = []
-                for kampanya in df_gruplu['CampaignName'].unique():
-                    k_df = df_gruplu[df_gruplu['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna()
-                    
-                    if not k_df.empty and len(k_df) >= 8:
-                        if 'CampaignStatus' in k_df.columns and str(k_df.iloc[-1]['CampaignStatus']).strip().upper() != 'ENABLED': 
-                            continue # Aktif değilse atla
+                    # --- KURAL 1: IMPRESSIONS KURGUSU ---
+                    with st.expander("👁️ Impressions Kurgusu", expanded=True):
+                        st.info("Kural: Dünün Impressions değeri, ondan önceki 7 günün ortalamasından %20 aşağıdaysa alarm oluşturur.")
                         
-                        # Dün ve ondan önceki 7 gün
-                        son_veri = k_df.iloc[-1] 
-                        gecmis_7 = k_df.iloc[-8:-1]
-                        
-                        if son_veri['gecici_tarih'] == dun: # Son veri gerçekten dün mü kontrolü
-                            gecmis_ort = gecmis_7['Impressions'].mean()
-                            guncel_imp = son_veri['Impressions']
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            imp_kural_aktif = st.toggle("⚙️ Kuralı Çalıştır", value=True, key="imp_kural")
+                        with col2:
+                            imp_slack_aktif = st.toggle("💬 Slack Bildirimi", value=False, key="imp_slack")
                             
-                            if gecmis_ort > 0:
-                                degisim = ((guncel_imp - gecmis_ort) / gecmis_ort) * 100
-                                if degisim <= -20:
-                                    uyarilar.append(f"📉 **{kampanya}**: Gösterim %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.0f} ➡️ Dün: {guncel_imp:.0f})")
-                
-                if uyarilar:
-                    for u in uyarilar: st.error(u)
-                    if imp_slack_aktif:
-                        st.warning("*(Slack bildirimi açık: Saat 11:00 otomasyonunda bu mesajlar Slack'e düşecek)*")
-                else:
-                    st.success("✅ Dün için Impressions kuralına takılan kampanya yok.")
+                        if imp_kural_aktif and 'ham_veri' in st.session_state:
+                            df_alert = st.session_state.ham_veri.copy()
+                            aktif_tarih = next((col for col in df_alert.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
+                            
+                            if aktif_tarih:
+                                df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], errors='coerce', dayfirst=True)
+                                df_alert['Impressions'] = pd.to_numeric(df_alert['Impressions'], errors='coerce').fillna(0)
+                                
+                                # Sadece düne kadar olan verileri al (Bugünü işleme katma)
+                                bugun = pd.Timestamp.today().normalize()
+                                dun = bugun - pd.Timedelta(days=1)
+                                df_alert = df_alert[df_alert['gecici_tarih'] <= dun]
+                                
+                                # Verileri toparla
+                                agg_kurallari = {'Impressions': 'sum'}
+                                if 'CampaignStatus' in df_alert.columns: agg_kurallari['CampaignStatus'] = 'last'
+                                df_gruplu = df_alert.groupby(['CampaignName', 'gecici_tarih']).agg(agg_kurallari).reset_index()
+                                
+                                uyarilar = []
+                                for kampanya in df_gruplu['CampaignName'].unique():
+                                    k_df = df_gruplu[df_gruplu['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna()
+                                    
+                                    if not k_df.empty and len(k_df) >= 8:
+                                        if 'CampaignStatus' in k_df.columns and str(k_df.iloc[-1]['CampaignStatus']).strip().upper() != 'ENABLED': 
+                                            continue # Aktif değilse atla
+                                        
+                                        # Dün ve ondan önceki 7 gün
+                                        son_veri = k_df.iloc[-1] 
+                                        gecmis_7 = k_df.iloc[-8:-1]
+                                        
+                                        if son_veri['gecici_tarih'] == dun: # Son veri gerçekten dün mü kontrolü
+                                            gecmis_ort = gecmis_7['Impressions'].mean()
+                                            guncel_imp = son_veri['Impressions']
+                                            
+                                            if gecmis_ort > 0:
+                                                degisim = ((guncel_imp - gecmis_ort) / gecmis_ort) * 100
+                                                if degisim <= -20:
+                                                    uyarilar.append(f"📉 **{kampanya}**: Gösterim %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.0f} ➡️ Dün: {guncel_imp:.0f})")
+                                
+                                if uyarilar:
+                                    for u in uyarilar: st.error(u)
+                                    if imp_slack_aktif:
+                                        st.warning("*(Slack bildirimi açık: Saat 11:00 otomasyonunda bu mesajlar Slack'e düşecek)*")
+                                else:
+                                    st.success("✅ Dün için Impressions kuralına takılan kampanya yok.")
                 except Exception as e: st.error(f"AI Hatası: {e}")
