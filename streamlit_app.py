@@ -8,7 +8,7 @@ import requests
 st.set_page_config(page_title="Yönetim Paneli", layout="wide")
 
 API_URL = "https://script.google.com/macros/s/AKfycbxHd6N9TF2uzqJr-EhEfGyGH3j2oGTEiTRpKShSwwoWpJuVocyXVGHbWHyYNDL9uSQ/exec"
-API_TOKEN = "neco_baba_123"
+API_TOKEN = "manuka-fresh-reports"
 DATA_FILE = "rapor_veritabanı.json"
 
 def verileri_yukle():
