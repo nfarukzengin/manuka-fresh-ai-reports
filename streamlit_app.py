@@ -198,7 +198,7 @@ else:
                 if secilen_kampanyalar:
                     df = df[df['CampaignName'].isin(secilen_kampanyalar)]
                     
-         # --- ALERT SİSTEMİ (YAN YANA KUTUCUKLU) ---
+        # --- ALERT SİSTEMİ (YAN YANA KUTUCUKLU & GÜNLÜK TOPLAMALI) ---
             aktif_tarih = next((col for col in df.columns if col.lower() in ['tarih', 'date', 'gün', 'day']), None)
             
             if 'CampaignName' in df.columns and aktif_tarih:
@@ -210,13 +210,21 @@ else:
                 df_alert = df.copy()
                 df_alert['gecici_tarih'] = pd.to_datetime(df_alert[aktif_tarih], format='%d.%m.%Y', errors='coerce')
                 
-                # HATALI NOKTA SİLME KODU UÇURULDU. Ana verideki temiz sayıları direkt kullanıyoruz.
+                # 1. Metrikleri temizle ve zorla sayıya çevir
                 for metrik in ['Impressions', 'Clicks', 'Conversions']:
                     if metrik in df_alert.columns:
                         df_alert[metrik] = pd.to_numeric(df_alert[metrik], errors='coerce').fillna(0)
                 
-                for kampanya in df_alert['CampaignName'].unique():
-                    k_df = df_alert[df_alert['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
+                # 2. ÇÖZÜM: Aynı güne ait verileri tek bir satırda TOPLA (Sum)
+                agg_kurallari = {m: 'sum' for m in ['Impressions', 'Clicks', 'Conversions'] if m in df_alert.columns}
+                if 'CampaignStatus' in df_alert.columns:
+                    agg_kurallari['CampaignStatus'] = 'last' # Durum bilgisini kaybetmemek için sonuncuyu alıyoruz
+                    
+                df_gruplu = df_alert.groupby(['CampaignName', 'gecici_tarih']).agg(agg_kurallari).reset_index()
+                
+                # 3. Kıyaslama Başlıyor
+                for kampanya in df_gruplu['CampaignName'].unique():
+                    k_df = df_gruplu[df_gruplu['CampaignName'] == kampanya].sort_values('gecici_tarih').dropna(subset=['gecici_tarih'])
                     
                     if not k_df.empty:
                         # Sadece aktif kampanyalar
@@ -229,6 +237,8 @@ else:
                             gecmis_7 = k_df.iloc[-8:-1]
                             kampanya_uyarilari = []
                             
+                            guncel_tarih_str = son_veri['gecici_tarih'].strftime('%d.%m.%Y')
+                            
                             for metrik in ['Impressions', 'Clicks', 'Conversions']:
                                 if metrik in k_df.columns:
                                     gecmis_ort = gecmis_7[metrik].mean()
@@ -236,8 +246,8 @@ else:
                                     if gecmis_ort > 0:
                                         degisim = ((guncel - gecmis_ort) / gecmis_ort) * 100
                                         if degisim <= -20:
-                                            # Gösterim .1f yapıldı ki 4.5 gibi ondalıklar tam okunsun
-                                            kampanya_uyarilari.append(f"{metrik}: %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.1f} ➡️ Güncel: {guncel:.1f})")
+                                            # Tarihi de ekrana basıyoruz ki hangi günü hesapladığı anlaşılsın
+                                            kampanya_uyarilari.append(f"{metrik}: %{abs(degisim):.1f} düştü! (Ort: {gecmis_ort:.1f} ➡️ Güncel [{guncel_tarih_str}]: {guncel:.1f})")
                             
                             if kampanya_uyarilari:
                                 alarm_verenler[kampanya] = kampanya_uyarilari
@@ -245,12 +255,7 @@ else:
                                 isler_yolunda.append(kampanya)
                 
                 # --- YAN YANA SEÇİM KUTUCUKLARI ---
-                durum_secimi = st.radio(
-                    "Kampanyaları Filtrele:",
-                    ["🔴 Alarm Verenler", "🟢 İşler Yolunda"],
-                    horizontal=True
-                )
-                
+                durum_secimi = st.radio("Kampanyaları Filtrele:", ["🔴 Alarm Verenler", "🟢 İşler Yolunda"], horizontal=True)
                 st.write("---")
                 
                 if durum_secimi == "🔴 Alarm Verenler":
