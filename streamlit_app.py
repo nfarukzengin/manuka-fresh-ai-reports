@@ -211,7 +211,7 @@ else:
                     modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                     model = genai.GenerativeModel(modeller[0])
                     
-                    prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
+                    prompt = f"Sen tecrübeli bir Dijital Pazarlama Uzmanısın. Aksi belirtilmedikçe özet bilgi ver. Veriler: {df.to_string()} \nSoru: {kullanici_sorusu}"
                     
                     with st.spinner("Uzman raporu hazırlıyor..."):
                         cevap = model.generate_content(prompt)
