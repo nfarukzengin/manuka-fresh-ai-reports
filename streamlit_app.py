@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
+# Fresh Scarfs klasöründeki logic.py dosyasını içeri alıyoruz
+from brands.fresh_scarfs import logic as fs_logic 
 
-# Sayfa Genişlik Ayarı
+# Sayfa Genişlik Ayarı ve Başlık
 st.set_page_config(page_title="Neco Dashboard", layout="wide")
 
-# --- 1. GİRİŞ EKRANI (Login) ---
+# --- 1. GİRİŞ EKRANI (Login Control) ---
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
@@ -12,7 +14,7 @@ if not st.session_state['logged_in']:
     st.title("🔒 Veri Analiz Paneli")
     password = st.text_input("Şifre Giriniz", type="password")
     if st.button("Giriş Yap"):
-        if password == "1234": # Burayı sonra değiştiririz
+        if password == "1234": # Bu şifreyi istediğin zaman değiştirebilirsin
             st.session_state['logged_in'] = True
             st.rerun()
         else:
@@ -22,25 +24,21 @@ if not st.session_state['logged_in']:
 # --- 2. MARKA SEÇİMİ (Sidebar) ---
 st.sidebar.title("Marka Seçimi")
 marka = st.sidebar.selectbox("Lütfen Marka Seçin", 
-    ["Fresh Scarfs", "Manuka (Soon)", "Manuka Global (Soon)", "Fresh Scarfs Co (Soon)"])
+    ["Fresh Scarfs", "Manuka (Yakında)", "Manuka Global (Yakında)", "Fresh Scarfs Co (Yakında)"])
 
-if "Fresh Scarfs" in marka:
+# --- 3. ANA İÇERİK (Fresh Scarfs Seçiliyse) ---
+if marka == "Fresh Scarfs":
     st.title(f"📊 {marka} Dashboard")
     
-    # --- 3. RAPORLAR VE ALARM MERKEZİ (Sekmeler) ---
+    # Raporlar ve Alarm Merkezi sekmelerini oluşturuyoruz
     tab_rapor, tab_alarm = st.tabs(["📋 Raporlar", "🚨 Alarm Merkezi"])
 
     with tab_rapor:
-        st.subheader("Google Ads Veri Kontrolü")
-        
-        # Veri çekme simülasyonu (Buraya senin Sheets ID gelecek)
-        # data = pd.read_csv("GOOGLE_SHEET_URL")
-        st.info("Şu an veriler Google Sheets'ten bekleniyor...")
-        
-        # Örnek Tablo
-        st.write("Dataların doğruluğunu kontrol etmek için ham tablo:")
-        # st.dataframe(data) 
+        # brands/fresh_scarfs/logic.py içindeki raporu çalıştırır
+        fs_logic.show_report()
 
     with tab_alarm:
         st.subheader("Kritik Uyarılar")
-        st.write("Şu an aktif bir alarm kuralı bulunmuyor.")
+        st.info("Alarm merkezi için eşik değerleri henüz tanımlanmadı.")
+
+# Diğer markalar için ileride buraya yeni 'elif' blokları ekleyeceğiz.
