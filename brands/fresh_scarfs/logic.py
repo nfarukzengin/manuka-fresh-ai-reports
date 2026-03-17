@@ -5,7 +5,7 @@ import requests
 def get_data():
     # Makroyu "Web Uygulaması" olarak yayınladığında sana verdiği URL
     # Sonu muhtemelen /exec ile bitiyordur
-    API_URL = "hhttp://script.google.com/u/0/home/projects/1j5coLDJcPzFVhzMcc5sVj2vxLhGm24Dp1d23okNFzOKctRCjqD0C02SE/edit"
+    API_URL = "hhttp://script.google.com/u/0/home/projects/1j5coLDJcPzFVhzMcc5sVj2vxLhGm24Dp1d23okNFzOKctRCjqD0C02SE/"
     
     try:
         response = requests.get(API_URL)
