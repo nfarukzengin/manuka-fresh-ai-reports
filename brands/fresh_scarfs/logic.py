@@ -4,7 +4,7 @@ import requests
 
 # --- VERİ ÇEKME FONKSİYONU ---
 def get_data(sayfa="Sayfa1"):
-    API_URL = "SENİN_MAKRO_WEB_APP_URL_BURAYA" # Buraya kendi URL'ni yapıştır
+    API_URL = "https://script.google.com/macros/s/AKfycbwPSkft-3lxwcq85HC805Uin0yI-i-d1hcmmGEHCpbfdhiNzgxQ8ZSDS7bsklO3E7qD/exec" # Buraya kendi URL'ni yapıştır
     SHEET_ID = "1V1_YvNbW3W2qOlk1SnLaPOgSUMO_tuShCXtX81yPEgA"
     TOKEN = "manuka-fresh-reports"
     
