@@ -1,3 +1,4 @@
-requests
-pandas
 streamlit
+pandas
+requests
+altair==4.2.2
