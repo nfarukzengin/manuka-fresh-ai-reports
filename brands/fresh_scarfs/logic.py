@@ -1,7 +1,7 @@
 import streamlit as st
 from brands.fresh_scarfs import constants
 # Rapor dosyalarımızı import ediyoruz
-from brands.fresh_scarfs.reports import daily_performance, meta_reports
+from brands.fresh_scarfs.reports import daily_performance
 
 def show_report():
     st.markdown("### 📂 Rapor Gezgini")
